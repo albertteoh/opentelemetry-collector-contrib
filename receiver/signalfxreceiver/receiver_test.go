@@ -31,7 +31,6 @@ import (
 	"testing"
 	"time"
 
-	metricspb "github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1"
 	sfxpb "github.com/signalfx/com_signalfx_metrics_protobuf/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,13 +40,11 @@ import (
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/consumer"
-	"go.opentelemetry.io/collector/consumer/consumerdata"
 	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/testutil"
-	"go.opentelemetry.io/collector/testutil/metricstestutil"
 	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter"
 )
@@ -117,21 +114,56 @@ func Test_signalfxeceiver_EndToEnd(t *testing.T) {
 
 	unixSecs := int64(1574092046)
 	unixNSecs := int64(11 * time.Millisecond)
-	tsUnix := time.Unix(unixSecs, unixNSecs)
+	ts := pdata.TimestampUnixNano(time.Unix(unixSecs, unixNSecs).UnixNano())
+
 	doubleVal := 1234.5678
-	doublePt := metricstestutil.Double(tsUnix, doubleVal)
+	doublePt := pdata.NewDoubleDataPoint()
+	doublePt.SetTimestamp(ts)
+	doublePt.SetValue(doubleVal)
+	doublePt.LabelsMap().InitEmptyWithCapacity(0)
+
 	int64Val := int64(123)
-	int64Pt := &metricspb.Point{
-		Timestamp: metricstestutil.Timestamp(tsUnix),
-		Value:     &metricspb.Point_Int64Value{Int64Value: int64Val},
+	int64Pt := pdata.NewIntDataPoint()
+	int64Pt.SetTimestamp(ts)
+	int64Pt.SetValue(int64Val)
+	int64Pt.LabelsMap().InitEmptyWithCapacity(0)
+
+	want := pdata.NewMetrics()
+	rms := want.ResourceMetrics()
+	rms.Resize(1)
+	rm := rms.At(0)
+
+	rm.InstrumentationLibraryMetrics().Resize(1)
+	ilm := rm.InstrumentationLibraryMetrics().At(0)
+	ilm.Metrics().Resize(4)
+
+	{
+		m := ilm.Metrics().At(0)
+		m.SetName("gauge_double_with_dims")
+		m.SetDataType(pdata.MetricDataTypeDoubleGauge)
+		m.DoubleGauge().DataPoints().Append(doublePt)
 	}
-	want := consumerdata.MetricsData{
-		Metrics: []*metricspb.Metric{
-			metricstestutil.Gauge("gauge_double_with_dims", nil, metricstestutil.Timeseries(tsUnix, nil, doublePt)),
-			metricstestutil.GaugeInt("gauge_int_with_dims", nil, metricstestutil.Timeseries(tsUnix, nil, int64Pt)),
-			metricstestutil.Cumulative("cumulative_double_with_dims", nil, metricstestutil.Timeseries(tsUnix, nil, doublePt)),
-			metricstestutil.CumulativeInt("cumulative_int_with_dims", nil, metricstestutil.Timeseries(tsUnix, nil, int64Pt)),
-		},
+	{
+		m := ilm.Metrics().At(1)
+		m.SetName("gauge_int_with_dims")
+		m.SetDataType(pdata.MetricDataTypeIntGauge)
+		m.IntGauge().DataPoints().Append(int64Pt)
+	}
+	{
+		m := ilm.Metrics().At(2)
+		m.SetName("cumulative_double_with_dims")
+		m.SetDataType(pdata.MetricDataTypeDoubleSum)
+		m.DoubleSum().SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+		m.DoubleSum().SetIsMonotonic(true)
+		m.DoubleSum().DataPoints().Append(doublePt)
+	}
+	{
+		m := ilm.Metrics().At(3)
+		m.SetName("cumulative_int_with_dims")
+		m.SetDataType(pdata.MetricDataTypeIntSum)
+		m.IntSum().SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+		m.IntSum().SetIsMonotonic(true)
+		m.IntSum().DataPoints().Append(int64Pt)
 	}
 
 	expCfg := &signalfxexporter.Config{
@@ -147,27 +179,13 @@ func Test_signalfxeceiver_EndToEnd(t *testing.T) {
 	require.NoError(t, exp.Start(context.Background(), componenttest.NewNopHost()))
 	require.NoError(t, testutil.WaitForPort(t, port))
 	defer exp.Shutdown(context.Background())
-	require.NoError(t, exp.ConsumeMetrics(context.Background(), internaldata.OCToMetrics(want)))
-	// Description, unit and start time are expected to be dropped during conversions.
-	for _, metric := range want.Metrics {
-		if len(metric.MetricDescriptor.LabelKeys) == 0 {
-			metric.MetricDescriptor.LabelKeys = nil
-		}
-		metric.MetricDescriptor.Description = ""
-		metric.MetricDescriptor.Unit = ""
-		for _, ts := range metric.Timeseries {
-			ts.StartTimestamp = nil
-			if len(ts.LabelValues) == 0 {
-				ts.LabelValues = nil
-			}
-		}
-	}
+	require.NoError(t, exp.ConsumeMetrics(context.Background(), want))
 
 	mds := sink.AllMetrics()
 	require.Len(t, mds, 1)
-	got := internaldata.MetricsToOC(mds[0])
-	require.Len(t, got, 1)
-	assert.Equal(t, want, got[0])
+	got := mds[0]
+	require.Equal(t, 1, got.ResourceMetrics().Len())
+	assert.Equal(t, want, got)
 
 	assert.NoError(t, r.Shutdown(context.Background()))
 	assert.Equal(t, componenterror.ErrAlreadyStopped, r.Shutdown(context.Background()))
@@ -281,7 +299,7 @@ func Test_sfxReceiver_handleReq(t *testing.T) {
 				return req
 			}(),
 			assertResponse: func(t *testing.T, status int, body string) {
-				assert.Equal(t, http.StatusAccepted, status)
+				assert.Equal(t, http.StatusOK, status)
 				assert.Equal(t, responseOK, body)
 			},
 		},
@@ -303,7 +321,7 @@ func Test_sfxReceiver_handleReq(t *testing.T) {
 				return req
 			}(),
 			assertResponse: func(t *testing.T, status int, body string) {
-				assert.Equal(t, http.StatusAccepted, status)
+				assert.Equal(t, http.StatusOK, status)
 				assert.Equal(t, responseOK, body)
 			},
 		},
@@ -456,7 +474,7 @@ func Test_sfxReceiver_handleEventReq(t *testing.T) {
 				return req
 			}(),
 			assertResponse: func(t *testing.T, status int, body string) {
-				assert.Equal(t, http.StatusAccepted, status)
+				assert.Equal(t, http.StatusOK, status)
 				assert.Equal(t, responseOK, body)
 			},
 		},
@@ -478,7 +496,7 @@ func Test_sfxReceiver_handleEventReq(t *testing.T) {
 				return req
 			}(),
 			assertResponse: func(t *testing.T, status int, body string) {
-				assert.Equal(t, http.StatusAccepted, status)
+				assert.Equal(t, http.StatusOK, status)
 				assert.Equal(t, responseOK, body)
 			},
 		},
@@ -550,44 +568,32 @@ func Test_sfxReceiver_TLS(t *testing.T) {
 	t.Log("Metric Reception Started")
 
 	msec := time.Now().Unix() * 1e3
-	want := consumerdata.MetricsData{
-		Metrics: []*metricspb.Metric{
-			{
-				MetricDescriptor: &metricspb.MetricDescriptor{
-					Name: "single",
-					Type: metricspb.MetricDescriptor_GAUGE_INT64,
-					LabelKeys: []*metricspb.LabelKey{
-						{Key: "k0"}, {Key: "k1"}, {Key: "k2"},
-					},
-				},
-				Timeseries: []*metricspb.TimeSeries{
-					{
-						LabelValues: []*metricspb.LabelValue{
-							{
-								Value:    "v0",
-								HasValue: true,
-							},
-							{
-								Value:    "v1",
-								HasValue: true,
-							},
-							{
-								Value:    "v2",
-								HasValue: true,
-							},
-						},
-						Points: []*metricspb.Point{{
-							Timestamp: &timestamppb.Timestamp{
-								Seconds: msec / 1e3,
-								Nanos:   int32(msec%1e3) * 1e3,
-							},
-							Value: &metricspb.Point_Int64Value{Int64Value: 13},
-						}},
-					},
-				},
-			},
-		},
-	}
+
+	want := pdata.NewMetrics()
+	want.ResourceMetrics().Resize(1)
+	rm := want.ResourceMetrics().At(0)
+	rm.InstrumentationLibraryMetrics().Resize(1)
+	ilm := rm.InstrumentationLibraryMetrics().At(0)
+	ms := ilm.Metrics()
+
+	ms.Resize(1)
+	m := ms.At(0)
+
+	m.SetDataType(pdata.MetricDataTypeIntGauge)
+	m.SetName("single")
+	dps := m.IntGauge().DataPoints()
+
+	dps.Resize(1)
+	dp := dps.At(0)
+	dp.SetTimestamp(pdata.TimestampUnixNano(msec * 1e6))
+	dp.SetValue(13)
+
+	dp.LabelsMap().InitFromMap(map[string]string{
+		"k0": "v0",
+		"k1": "v1",
+		"k2": "v2",
+	})
+	dp.LabelsMap().Sort()
 
 	t.Log("Sending SignalFx metric data Request")
 
@@ -616,14 +622,14 @@ func Test_sfxReceiver_TLS(t *testing.T) {
 
 	resp, err := client.Do(req)
 	require.NoErrorf(t, err, "should not have failed when sending to signalFx receiver %v", err)
-	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	t.Log("SignalFx Request Received")
 
 	mds := sink.AllMetrics()
 	require.Len(t, mds, 1)
-	got := internaldata.MetricsToOC(mds[0])
-	require.Len(t, got, 1)
-	assert.Equal(t, want, got[0])
+	got := mds[0]
+	require.Equal(t, 1, got.ResourceMetrics().Len())
+	assert.Equal(t, want, got)
 }
 
 func Test_sfxReceiver_DatapointAccessTokenPassthrough(t *testing.T) {
@@ -683,7 +689,7 @@ func Test_sfxReceiver_DatapointAccessTokenPassthrough(t *testing.T) {
 			var bodyStr string
 			assert.NoError(t, json.Unmarshal(respBytes, &bodyStr))
 
-			assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 			assert.Equal(t, responseOK, bodyStr)
 
 			mds := sink.AllMetrics()
@@ -761,18 +767,15 @@ func Test_sfxReceiver_EventAccessTokenPassthrough(t *testing.T) {
 			var bodyStr string
 			assert.NoError(t, json.Unmarshal(respBytes, &bodyStr))
 
-			assert.Equal(t, http.StatusAccepted, resp.StatusCode)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 			assert.Equal(t, responseOK, bodyStr)
 
 			got := sink.AllLogs()
 			require.Equal(t, 1, len(got))
 
 			tokenLabel := ""
-			if !got[0].ResourceLogs().At(0).Resource().IsNil() {
-				accessTokenAttr, ok := got[0].ResourceLogs().At(0).Resource().Attributes().Get("com.splunk.signalfx.access_token")
-				if ok {
-					tokenLabel = accessTokenAttr.StringVal()
-				}
+			if accessTokenAttr, ok := got[0].ResourceLogs().At(0).Resource().Attributes().Get("com.splunk.signalfx.access_token"); ok {
+				tokenLabel = accessTokenAttr.StringVal()
 			}
 
 			if tt.passthrough {

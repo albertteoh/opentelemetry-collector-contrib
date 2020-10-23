@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -25,6 +26,7 @@ import (
 
 var (
 	errUnsetAPIKey = errors.New("api.key is not set")
+	errNoMetadata  = errors.New("only_metadata can't be enabled when send_metadata is disabled")
 )
 
 const (
@@ -53,16 +55,22 @@ func (api *APIConfig) GetCensoredKey() string {
 
 // MetricsConfig defines the metrics exporter specific configuration options
 type MetricsConfig struct {
-	// Namespace is the namespace under which the metrics are sent
-	// By default metrics are not namespaced
-	Namespace string `mapstructure:"namespace"`
-
 	// Buckets states whether to report buckets from distribution metrics
 	Buckets bool `mapstructure:"report_buckets"`
 
 	// TCPAddr.Endpoint is the host of the Datadog intake server to send metrics to.
 	// If unset, the value is obtained from the Site.
 	confignet.TCPAddr `mapstructure:",squash"`
+
+	ExporterConfig MetricsExporterConfig `mapstructure:",squash"`
+}
+
+// MetricsExporterConfig provides options for a user to customize the behavior of the
+// metrics exporter
+type MetricsExporterConfig struct {
+	// ResourceAttributesAsTags, if set to true, will use the exporterhelper feature to transform all
+	// resource attributes into metric labels, which are then converted into tags
+	ResourceAttributesAsTags bool `mapstructure:"resource_attributes_as_tags"`
 }
 
 // TracesConfig defines the traces exporter specific configuration options
@@ -99,28 +107,12 @@ type TagsConfig struct {
 	Tags []string `mapstructure:"tags"`
 }
 
-// GetTags gets the default tags extracted from the configuration
-func (t *TagsConfig) GetTags(addHost bool) []string {
-	tags := make([]string, 0, 4)
-
-	vars := map[string]string{
-		"env":     t.Env,
-		"service": t.Service,
-		"version": t.Version,
+// GetHostTags gets the host tags extracted from the configuration
+func (t *TagsConfig) GetHostTags() []string {
+	tags := t.Tags
+	if t.Env != "none" {
+		tags = append(tags, fmt.Sprintf("env:%s", t.Env))
 	}
-
-	if addHost {
-		vars["host"] = t.Hostname
-	}
-
-	for name, val := range vars {
-		if val != "" {
-			tags = append(tags, fmt.Sprintf("%s:%s", name, val))
-		}
-	}
-
-	tags = append(tags, t.Tags...)
-
 	return tags
 }
 
@@ -138,17 +130,37 @@ type Config struct {
 
 	// Traces defines the Traces exporter specific configuration
 	Traces TracesConfig `mapstructure:"traces"`
+
+	// SendMetadata defines whether to send host metadata
+	// This is undocumented and only used for unit testing.
+	//
+	// This can't be disabled if `only_metadata` is true.
+	SendMetadata bool `mapstructure:"send_metadata"`
+
+	// OnlyMetadata defines whether to only send metadata
+	// This is useful for agent-collector setups, so that
+	// metadata about a host is sent to the backend even
+	// when telemetry data is reported via a different host
+	//
+	// This flag is incompatible with disabling `send_metadata`
+	OnlyMetadata bool `mapstructure:"only_metadata"`
+
+	// onceMetadata ensures only one exporter (metrics/traces) sends host metadata
+	onceMetadata sync.Once
+}
+
+func (c *Config) OnceMetadata() *sync.Once {
+	return &c.onceMetadata
 }
 
 // Sanitize tries to sanitize a given configuration
 func (c *Config) Sanitize() error {
-	// Add '.' at the end of namespace
-	if c.Metrics.Namespace != "" && !strings.HasSuffix(c.Metrics.Namespace, ".") {
-		c.Metrics.Namespace = c.Metrics.Namespace + "."
-	}
-
 	if c.TagsConfig.Env == "" {
 		c.TagsConfig.Env = "none"
+	}
+
+	if c.OnlyMetadata && !c.SendMetadata {
+		return errNoMetadata
 	}
 
 	if c.API.Key == "" {

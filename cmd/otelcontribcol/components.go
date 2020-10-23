@@ -21,6 +21,7 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/alibabacloudlogserviceexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsemfexporter"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsprometheusremotewriteexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/azuremonitorexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/carbonexporter"
@@ -29,6 +30,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/honeycombexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/jaegerthrifthttpexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/kinesisexporter"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/loadbalancingexporter"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/logzioexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/newrelicexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/sapmexporter"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/sentryexporter"
@@ -43,6 +46,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/routingprocessor"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/spanmetricsprocessor"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsecscontainermetricsreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/awsxrayreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/carbonreceiver"
@@ -59,6 +64,8 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/splunkhecreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/statsdreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/wavefrontreceiver"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/windowsperfcountersreceiver"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zookeeperreceiver"
 )
 
 func components() (component.Factories, error) {
@@ -100,6 +107,8 @@ func components() (component.Factories, error) {
 		splunkhecreceiver.NewFactory(),
 		statsdreceiver.NewFactory(),
 		wavefrontreceiver.NewFactory(),
+		windowsperfcountersreceiver.NewFactory(),
+		zookeeperreceiver.NewFactory(),
 	}
 
 	receivers = append(receivers, extraReceivers()...)
@@ -114,6 +123,7 @@ func components() (component.Factories, error) {
 
 	exporters := []component.ExporterFactory{
 		alibabacloudlogserviceexporter.NewFactory(),
+		awsprometheusremotewriteexporter.NewFactory(),
 		awsemfexporter.NewFactory(),
 		awsxrayexporter.NewFactory(),
 		azuremonitorexporter.NewFactory(),
@@ -123,6 +133,8 @@ func components() (component.Factories, error) {
 		honeycombexporter.NewFactory(),
 		jaegerthrifthttpexporter.NewFactory(),
 		kinesisexporter.NewFactory(),
+		loadbalancingexporter.NewFactory(),
+		logzioexporter.NewFactory(),
 		newrelicexporter.NewFactory(),
 		sapmexporter.NewFactory(),
 		sentryexporter.NewFactory(),
@@ -144,6 +156,8 @@ func components() (component.Factories, error) {
 		metricstransformprocessor.NewFactory(),
 		resourcedetectionprocessor.NewFactory(),
 		routingprocessor.NewFactory(),
+		spanmetricsprocessor.NewFactory(),
+		tailsamplingprocessor.NewFactory(),
 	}
 	for _, pr := range factories.Processors {
 		processors = append(processors, pr)

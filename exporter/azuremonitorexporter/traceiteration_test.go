@@ -42,20 +42,7 @@ func TestTraceDataIterationNoResourceSpans(t *testing.T) {
 }
 
 // Tests the iteration logic over a pdata.Traces type when a ResourceSpans is nil
-func TestTraceDataIterationResourceSpansIsNil(t *testing.T) {
-	traces := pdata.NewTraces()
-	resourceSpans := pdata.NewResourceSpans()
-	traces.ResourceSpans().Append(resourceSpans)
-
-	visitor := getMockVisitor(true)
-
-	Accept(traces, visitor)
-
-	visitor.AssertNumberOfCalls(t, "visit", 0)
-}
-
-// Tests the iteration logic over a pdata.Traces type when a Resource is nil
-func TestTraceDataIterationResourceIsNil(t *testing.T) {
+func TestTraceDataIterationResourceSpansIsEmpty(t *testing.T) {
 	traces := pdata.NewTraces()
 	traces.ResourceSpans().Resize(1)
 
@@ -67,14 +54,11 @@ func TestTraceDataIterationResourceIsNil(t *testing.T) {
 }
 
 // Tests the iteration logic over a pdata.Traces type when InstrumentationLibrarySpans is nil
-func TestTraceDataIterationInstrumentationLibrarySpansIsNil(t *testing.T) {
+func TestTraceDataIterationInstrumentationLibrarySpansIsEmpty(t *testing.T) {
 	traces := pdata.NewTraces()
 	traces.ResourceSpans().Resize(1)
 	rs := traces.ResourceSpans().At(0)
-	r := rs.Resource()
-	r.InitEmpty()
-	instrumentationLibrarySpans := pdata.NewInstrumentationLibrarySpans()
-	rs.InstrumentationLibrarySpans().Append(instrumentationLibrarySpans)
+	rs.InstrumentationLibrarySpans().Resize(1)
 
 	visitor := getMockVisitor(true)
 
@@ -88,28 +72,7 @@ func TestTraceDataIterationNoSpans(t *testing.T) {
 	traces := pdata.NewTraces()
 	traces.ResourceSpans().Resize(1)
 	rs := traces.ResourceSpans().At(0)
-	r := rs.Resource()
-	r.InitEmpty()
 	rs.InstrumentationLibrarySpans().Resize(1)
-
-	visitor := getMockVisitor(true)
-
-	Accept(traces, visitor)
-
-	visitor.AssertNumberOfCalls(t, "visit", 0)
-}
-
-// Tests the iteration logic over a pdata.Traces type when the Span is nil
-func TestTraceDataIterationSpanIsNil(t *testing.T) {
-	traces := pdata.NewTraces()
-	traces.ResourceSpans().Resize(1)
-	rs := traces.ResourceSpans().At(0)
-	r := rs.Resource()
-	r.InitEmpty()
-	rs.InstrumentationLibrarySpans().Resize(1)
-	ilss := rs.InstrumentationLibrarySpans().At(0)
-	span := pdata.NewSpan()
-	ilss.Spans().Append(span)
 
 	visitor := getMockVisitor(true)
 
@@ -123,8 +86,6 @@ func TestTraceDataIterationNoShortCircuit(t *testing.T) {
 	traces := pdata.NewTraces()
 	traces.ResourceSpans().Resize(1)
 	rs := traces.ResourceSpans().At(0)
-	r := rs.Resource()
-	r.InitEmpty()
 	rs.InstrumentationLibrarySpans().Resize(1)
 	ilss := rs.InstrumentationLibrarySpans().At(0)
 	ilss.Spans().Resize(2)
@@ -141,8 +102,6 @@ func TestTraceDataIterationShortCircuit(t *testing.T) {
 	traces := pdata.NewTraces()
 	traces.ResourceSpans().Resize(1)
 	rs := traces.ResourceSpans().At(0)
-	r := rs.Resource()
-	r.InitEmpty()
 	rs.InstrumentationLibrarySpans().Resize(1)
 	ilss := rs.InstrumentationLibrarySpans().At(0)
 	ilss.Spans().Resize(2)

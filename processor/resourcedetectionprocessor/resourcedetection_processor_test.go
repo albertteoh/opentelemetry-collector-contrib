@@ -162,7 +162,7 @@ func TestResourceProcessor(t *testing.T) {
 			md1 := &MockDetector{}
 			md1.On("Detect").Return(tt.detectedResource, tt.detectedError)
 			factory.resourceProviderFactory = internal.NewProviderFactory(
-				map[internal.DetectorType]internal.DetectorFactory{"mock": func() (internal.Detector, error) {
+				map[internal.DetectorType]internal.DetectorFactory{"mock": func(component.ProcessorCreateParams) (internal.Detector, error) {
 					return md1, nil
 				}})
 
@@ -277,7 +277,7 @@ func TestResourceProcessor(t *testing.T) {
 }
 
 func oCensusResource(res pdata.Resource) *resourcepb.Resource {
-	if res.IsNil() {
+	if res.Attributes().Len() == 0 {
 		return &resourcepb.Resource{}
 	}
 
@@ -292,7 +292,7 @@ func oCensusResource(res pdata.Resource) *resourcepb.Resource {
 func benchmarkConsumeTraces(b *testing.B, cfg *Config) {
 	factory := NewFactory()
 	sink := new(consumertest.TracesSink)
-	processor, _ := factory.CreateTraceProcessor(context.Background(), component.ProcessorCreateParams{Logger: zap.NewNop()}, cfg, sink)
+	processor, _ := factory.CreateTracesProcessor(context.Background(), component.ProcessorCreateParams{Logger: zap.NewNop()}, cfg, sink)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {

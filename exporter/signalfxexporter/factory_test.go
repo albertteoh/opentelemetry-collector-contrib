@@ -30,7 +30,9 @@ import (
 	"go.opentelemetry.io/collector/config/configcheck"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/consumer/consumerdata"
+	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -51,6 +53,25 @@ func TestCreateMetricsExporter(t *testing.T) {
 
 	_, err := createMetricsExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
 	assert.NoError(t, err)
+}
+
+func TestCreateTracesExporter(t *testing.T) {
+	cfg := createDefaultConfig()
+	c := cfg.(*Config)
+	c.AccessToken = "access_token"
+	c.Realm = "us0"
+
+	_, err := createTraceExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
+	assert.NoError(t, err)
+}
+
+func TestCreateTracesExporterNoAccessToken(t *testing.T) {
+	cfg := createDefaultConfig()
+	c := cfg.(*Config)
+	c.Realm = "us0"
+
+	_, err := createTraceExporter(context.Background(), component.ExporterCreateParams{Logger: zap.NewNop()}, cfg)
+	assert.EqualError(t, err, "access_token is required")
 }
 
 func TestCreateInstanceViaFactory(t *testing.T) {
@@ -275,7 +296,7 @@ func TestDefaultTranslationRules(t *testing.T) {
 	data := testMetricsData()
 
 	c := translation.NewMetricsConverter(zap.NewNop(), tr)
-	translated, _ := c.MetricDataToSignalFxV2(data, nil)
+	translated := c.MetricDataToSignalFxV2(data)
 	require.NotNil(t, translated)
 
 	metrics := make(map[string][]*sfxpb.DataPoint)
@@ -339,7 +360,7 @@ func TestDefaultTranslationRules(t *testing.T) {
 	require.True(t, ok, "container_memory_major_page_faults not found")
 }
 
-func testMetricsData() []consumerdata.MetricsData {
+func testMetricsData() pdata.ResourceMetrics {
 	md := consumerdata.MetricsData{
 		Metrics: []*metricspb.Metric{
 			{
@@ -782,7 +803,7 @@ func testMetricsData() []consumerdata.MetricsData {
 			},
 		},
 	}
-	return []consumerdata.MetricsData{md}
+	return internaldata.OCSliceToMetrics([]consumerdata.MetricsData{md}).ResourceMetrics().At(0)
 }
 
 func TestDefaultDiskTranslations(t *testing.T) {

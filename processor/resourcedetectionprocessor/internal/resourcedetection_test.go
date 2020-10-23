@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
 )
@@ -81,14 +82,14 @@ func TestDetect(t *testing.T) {
 				md.On("Detect").Return(res, nil)
 
 				mockDetectorType := DetectorType(fmt.Sprintf("mockdetector%v", i))
-				mockDetectors[mockDetectorType] = func() (Detector, error) {
+				mockDetectors[mockDetectorType] = func(component.ProcessorCreateParams) (Detector, error) {
 					return md, nil
 				}
 				mockDetectorTypes = append(mockDetectorTypes, mockDetectorType)
 			}
 
 			f := NewProviderFactory(mockDetectors)
-			p, err := f.CreateResourceProvider(zap.NewNop(), time.Second, mockDetectorTypes...)
+			p, err := f.CreateResourceProvider(component.ProcessorCreateParams{Logger: zap.NewNop()}, time.Second, mockDetectorTypes...)
 			require.NoError(t, err)
 
 			got, err := p.Get(context.Background())
@@ -104,18 +105,18 @@ func TestDetect(t *testing.T) {
 func TestDetectResource_InvalidDetectorType(t *testing.T) {
 	mockDetectorKey := DetectorType("mock")
 	p := NewProviderFactory(map[DetectorType]DetectorFactory{})
-	_, err := p.CreateResourceProvider(zap.NewNop(), time.Second, mockDetectorKey)
+	_, err := p.CreateResourceProvider(component.ProcessorCreateParams{Logger: zap.NewNop()}, time.Second, mockDetectorKey)
 	require.EqualError(t, err, fmt.Sprintf("invalid detector key: %v", mockDetectorKey))
 }
 
 func TestDetectResource_DetectoryFactoryError(t *testing.T) {
 	mockDetectorKey := DetectorType("mock")
 	p := NewProviderFactory(map[DetectorType]DetectorFactory{
-		mockDetectorKey: func() (Detector, error) {
+		mockDetectorKey: func(component.ProcessorCreateParams) (Detector, error) {
 			return nil, errors.New("creation failed")
 		},
 	})
-	_, err := p.CreateResourceProvider(zap.NewNop(), time.Second, mockDetectorKey)
+	_, err := p.CreateResourceProvider(component.ProcessorCreateParams{Logger: zap.NewNop()}, time.Second, mockDetectorKey)
 	require.EqualError(t, err, fmt.Sprintf("failed creating detector type %q: %v", mockDetectorKey, "creation failed"))
 }
 
@@ -223,10 +224,14 @@ func TestAttributesToMap(t *testing.T) {
 	m := map[string]interface{}{
 		"str":    "a",
 		"int":    int64(5),
-		"double": float64(5.0),
+		"double": 5.0,
 		"bool":   true,
 		"map": map[string]interface{}{
 			"inner": "val",
+		},
+		"array": []interface{}{
+			"inner",
+			int64(42),
 		},
 	}
 	attr := pdata.NewAttributeMap()
@@ -235,10 +240,16 @@ func TestAttributesToMap(t *testing.T) {
 	attr.InsertDouble("double", 5.0)
 	attr.InsertBool("bool", true)
 	avm := pdata.NewAttributeValueMap()
-	innerAttr := pdata.NewAttributeMap()
+	innerAttr := avm.MapVal()
 	innerAttr.InsertString("inner", "val")
-	avm.SetMapVal(innerAttr)
 	attr.Insert("map", avm)
+
+	ava := pdata.NewAttributeValueArray()
+	arrayAttr := ava.ArrayVal()
+	arrayAttr.Resize(2)
+	arrayAttr.At(0).SetStringVal("inner")
+	arrayAttr.At(1).SetIntVal(42)
+	attr.Insert("array", ava)
 
 	assert.Equal(t, m, AttributesToMap(attr))
 }

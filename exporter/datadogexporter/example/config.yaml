@@ -32,6 +32,11 @@ exporters:
     #
     # tags: []
 
+    ## @param only_metadata - boolean - optional - default: false
+    ## Whether to send only metadata. This is useful for agent-collector
+    ## setups, so that metadata about a host is sent to the backend even
+    ## when telemetry data is reported via a different host.
+
     ## @param api - custom object - required.
     ## Specific API configuration.
     #
@@ -52,12 +57,6 @@ exporters:
     ## Metric exporter specific configuration.
     #
     # metrics:
-      ## @param namespace - string - optional
-      ## The namespace with which to prefix all metrics.
-      ## By default metrics are not namespaced.
-      #
-      # namespace: ""
-
       ## @param report_buckets - boolean - optional - default: false
       ## Whether to report bucket counts for distribution metric types.
       ## Enabling this will increase the number of custom metrics.
@@ -69,6 +68,13 @@ exporters:
       ## If unset the value is obtained through the `site` parameter in the `api` section.
       #
       # endpoint: https://api.datadoghq.com
+
+      ## @param resource_attributes_as_tags - string - optional - default: false
+      ## Set to true to add all resource attributes of a metric to its metric tags.
+      ## When set to false, only a small predefined subset of resource attributes is converted
+      ## to metric tags.
+      #
+      # resource_attributes_as_tags: false
 
     ## @param traces - custom object - optional
     ## Trace exporter specific configuration.
@@ -86,7 +92,6 @@ exporters:
       ## If unset the value is obtained through the `site` parameter in the `api` section.
       #
       # endpoint: https://api.datadoghq.com
-      
 
 service:
   pipelines:

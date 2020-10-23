@@ -26,6 +26,7 @@ import (
 	"regexp"
 	"strings"
 
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/pdata"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal"
@@ -40,13 +41,12 @@ var _ internal.Detector = (*Detector)(nil)
 
 type Detector struct{}
 
-func NewDetector() (internal.Detector, error) {
+func NewDetector(component.ProcessorCreateParams) (internal.Detector, error) {
 	return &Detector{}, nil
 }
 
 func (d *Detector) Detect(context.Context) (pdata.Resource, error) {
 	res := pdata.NewResource()
-	res.InitEmpty()
 
 	labels := strings.TrimSpace(os.Getenv(envVar))
 	if labels == "" {

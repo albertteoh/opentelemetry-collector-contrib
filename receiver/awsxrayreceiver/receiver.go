@@ -37,7 +37,7 @@ const (
 	maxPollerCount = 2
 )
 
-// xrayReceiver implements the component.TraceReceiver interface for converting
+// xrayReceiver implements the component.TracesReceiver interface for converting
 // AWS X-Ray segment document into the OT internal trace format.
 type xrayReceiver struct {
 	instanceName string
@@ -52,7 +52,7 @@ type xrayReceiver struct {
 
 func newReceiver(config *Config,
 	consumer consumer.TracesConsumer,
-	logger *zap.Logger) (component.TraceReceiver, error) {
+	logger *zap.Logger) (component.TracesReceiver, error) {
 
 	if consumer == nil {
 		return nil, componenterror.ErrNilNextConsumer
@@ -91,7 +91,7 @@ func (x *xrayReceiver) Start(ctx context.Context, host component.Host) error {
 	// TODO: Might want to pass `host` into read() below to report a fatal error
 	var err = componenterror.ErrAlreadyStarted
 	x.startOnce.Do(func() {
-		x.longLivedCtx = obsreport.ReceiverContext(ctx, x.instanceName, udppoller.Transport, "")
+		x.longLivedCtx = obsreport.ReceiverContext(ctx, x.instanceName, udppoller.Transport)
 		x.poller.Start(x.longLivedCtx)
 		go x.start()
 		go x.server.ListenAndServe()

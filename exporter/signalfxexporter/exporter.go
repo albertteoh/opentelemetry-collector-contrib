@@ -25,30 +25,42 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/consumer/pdata"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/dimensions"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/hostmetadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/translation"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sclusterreceiver/collection"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/metrics"
 )
+
+// TODO: Find a place for this to be shared.
+type baseMetricsExporter struct {
+	component.Component
+	consumer.MetricsConsumer
+}
+
+// TODO: Find a place for this to be shared.
+type baseLogsExporter struct {
+	component.Component
+	consumer.LogsConsumer
+}
 
 type signalfMetadataExporter struct {
 	component.MetricsExporter
-	pushMetadata func(metadata []*collection.MetadataUpdate) error
+	pushMetadata func(metadata []*metrics.MetadataUpdate) error
 }
 
-func (sme *signalfMetadataExporter) ConsumeMetadata(metadata []*collection.MetadataUpdate) error {
+func (sme *signalfMetadataExporter) ConsumeMetadata(metadata []*metrics.MetadataUpdate) error {
 	return sme.pushMetadata(metadata)
 }
 
 type signalfxExporter struct {
 	logger             *zap.Logger
 	pushMetricsData    func(ctx context.Context, md pdata.Metrics) (droppedTimeSeries int, err error)
-	pushMetadata       func(metadata []*collection.MetadataUpdate) error
-	pushResourceLogs   func(ctx context.Context, ld pdata.ResourceLogs) (droppedLogRecords int, err error)
+	pushMetadata       func(metadata []*metrics.MetadataUpdate) error
+	pushLogsData       func(ctx context.Context, ld pdata.Logs) (droppedLogRecords int, err error)
 	hostMetadataSyncer *hostmetadata.Syncer
 }
 
@@ -160,8 +172,8 @@ func newEventExporter(config *Config, logger *zap.Logger) (*signalfxExporter, er
 	}
 
 	return &signalfxExporter{
-		logger:           logger,
-		pushResourceLogs: eventClient.pushResourceLogs,
+		logger:       logger,
+		pushLogsData: eventClient.pushLogsData,
 	}, nil
 }
 
@@ -174,14 +186,5 @@ func (se *signalfxExporter) pushMetrics(ctx context.Context, md pdata.Metrics) (
 }
 
 func (se *signalfxExporter) pushLogs(ctx context.Context, ld pdata.Logs) (int, error) {
-	var numDroppedRecords int
-	var err error
-	rls := ld.ResourceLogs()
-	for i := 0; i < rls.Len(); i++ {
-		dropped, thisErr := se.pushResourceLogs(ctx, rls.At(i))
-		numDroppedRecords += dropped
-		err = multierr.Append(err, thisErr)
-	}
-
-	return numDroppedRecords, err
+	return se.pushLogsData(ctx, ld)
 }

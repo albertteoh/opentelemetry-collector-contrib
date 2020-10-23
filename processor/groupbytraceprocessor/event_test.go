@@ -48,11 +48,11 @@ func TestEventCallback(t *testing.T) {
 		{
 			casename: "onTraceExpired",
 			typ:      traceExpired,
-			payload:  pdata.NewTraceID([]byte{1, 2, 3, 4}),
+			payload:  pdata.NewTraceID([16]byte{1, 2, 3, 4}),
 			registerCallback: func(em *eventMachine, wg *sync.WaitGroup) {
 				em.onTraceExpired = func(expired pdata.TraceID) error {
 					wg.Done()
-					assert.Equal(t, pdata.NewTraceID([]byte{1, 2, 3, 4}), expired)
+					assert.Equal(t, pdata.NewTraceID([16]byte{1, 2, 3, 4}), expired)
 					return nil
 				}
 			},
@@ -71,11 +71,11 @@ func TestEventCallback(t *testing.T) {
 		{
 			casename: "onTraceRemoved",
 			typ:      traceRemoved,
-			payload:  pdata.NewTraceID([]byte{1, 2, 3, 4}),
+			payload:  pdata.NewTraceID([16]byte{1, 2, 3, 4}),
 			registerCallback: func(em *eventMachine, wg *sync.WaitGroup) {
 				em.onTraceRemoved = func(expired pdata.TraceID) error {
 					wg.Done()
-					assert.Equal(t, pdata.NewTraceID([]byte{1, 2, 3, 4}), expired)
+					assert.Equal(t, pdata.NewTraceID([16]byte{1, 2, 3, 4}), expired)
 					return nil
 				}
 			},
@@ -276,11 +276,11 @@ func TestEventShutdown(t *testing.T) {
 	})
 	em.fire(event{
 		typ:     traceRemoved,
-		payload: pdata.NewTraceID([]byte{1, 2, 3, 4}),
+		payload: pdata.NewTraceID([16]byte{1, 2, 3, 4}),
 	})
 	em.fire(event{
 		typ:     traceRemoved,
-		payload: pdata.NewTraceID([]byte{1, 2, 3, 4}),
+		payload: pdata.NewTraceID([16]byte{1, 2, 3, 4}),
 	})
 
 	time.Sleep(10 * time.Millisecond) // give it a bit of time to process the items
@@ -301,7 +301,7 @@ func TestEventShutdown(t *testing.T) {
 	// new events should *not* be processed
 	em.fire(event{
 		typ:     traceExpired,
-		payload: pdata.NewTraceID([]byte{1, 2, 3, 4}),
+		payload: pdata.NewTraceID([16]byte{1, 2, 3, 4}),
 	})
 
 	// verify
@@ -320,7 +320,12 @@ func TestEventShutdown(t *testing.T) {
 func TestPeriodicMetrics(t *testing.T) {
 	// prepare
 	views := MetricViews()
+
+	// ensure that we are starting with a clean state
+	view.Unregister(views...)
 	view.Register(views...)
+
+	// try to be nice with the next consumer (test)
 	defer view.Unregister(views...)
 
 	logger, err := zap.NewDevelopment()
@@ -384,24 +389,30 @@ func TestForceShutdown(t *testing.T) {
 
 	// verify
 	assert.True(t, duration > 20*time.Millisecond)
+
+	// wait for shutdown goroutine to end
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestDoWithTimeout(t *testing.T) {
 	// prepare
 	start := time.Now()
 
+	done := make(chan struct{})
+
 	// test
-	doWithTimeout(10*time.Millisecond, func() error {
-		time.Sleep(20 * time.Second)
+	doWithTimeout(5*time.Millisecond, func() error {
+		<-done
 		return nil
 	})
+	close(done)
 
 	// verify
 	assert.WithinDuration(t, start, time.Now(), 20*time.Millisecond)
 }
 
 func assertGauge(t *testing.T, expected int, gauge *stats.Int64Measure) {
-	viewData, err := view.RetrieveData(gauge.Name())
+	viewData, err := view.RetrieveData("processor/groupbytrace/" + gauge.Name())
 	require.NoError(t, err)
 	require.Len(t, viewData, 1) // we expect exactly one data point, the last value
 
@@ -410,7 +421,7 @@ func assertGauge(t *testing.T, expected int, gauge *stats.Int64Measure) {
 }
 
 func assertGaugeNotCreated(t *testing.T, gauge *stats.Int64Measure) {
-	viewData, err := view.RetrieveData(gauge.Name())
+	viewData, err := view.RetrieveData("processor/groupbytrace/" + gauge.Name())
 	require.NoError(t, err)
 	assert.Len(t, viewData, 0, "gauge exists already but shouldn't")
 }

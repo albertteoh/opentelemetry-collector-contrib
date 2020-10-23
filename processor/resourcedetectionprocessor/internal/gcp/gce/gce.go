@@ -19,6 +19,7 @@ package gce // import "cloud.google.com/go/compute/metadata"
 import (
 	"context"
 
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenterror"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/conventions"
@@ -36,13 +37,12 @@ type Detector struct {
 	metadata gceMetadata
 }
 
-func NewDetector() (internal.Detector, error) {
+func NewDetector(component.ProcessorCreateParams) (internal.Detector, error) {
 	return &Detector{metadata: &gceMetadataImpl{}}, nil
 }
 
 func (d *Detector) Detect(context.Context) (pdata.Resource, error) {
 	res := pdata.NewResource()
-	res.InitEmpty()
 
 	if !d.metadata.OnGCE() {
 		return res, nil
@@ -85,7 +85,7 @@ func (d *Detector) initializeHostAttributes(attr pdata.AttributeMap) []error {
 	if err != nil {
 		errors = append(errors, err)
 	} else {
-		attr.InsertString(conventions.AttributeHostHostname, hostname)
+		attr.InsertString(conventions.AttributeHostName, hostname)
 	}
 
 	instanceID, err := d.metadata.InstanceID()
@@ -93,13 +93,6 @@ func (d *Detector) initializeHostAttributes(attr pdata.AttributeMap) []error {
 		errors = append(errors, err)
 	} else {
 		attr.InsertString(conventions.AttributeHostID, instanceID)
-	}
-
-	name, err := d.metadata.InstanceName()
-	if err != nil {
-		errors = append(errors, err)
-	} else {
-		attr.InsertString(conventions.AttributeHostName, name)
 	}
 
 	hostType, err := d.metadata.Get("instance/machine-type")

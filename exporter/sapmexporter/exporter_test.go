@@ -23,14 +23,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jaegertracing/jaeger/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/consumer/pdata"
+	"go.opentelemetry.io/collector/translator/trace/jaeger"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/splunk"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk"
 )
 
 func TestCreateTraceExporter(t *testing.T) {
@@ -54,32 +56,6 @@ func TestCreateTraceExporter(t *testing.T) {
 	assert.NoError(t, te.Shutdown(context.Background()), "trace exporter shutdown failed")
 }
 
-func TestCreateTraceExporterWithCorrelationEnabled(t *testing.T) {
-	cfg := createDefaultConfig().(*Config)
-	cfg.Endpoint = "localhost:1234"
-	cfg.Correlation.Enabled = true
-	cfg.Correlation.Endpoint = "http://localhost"
-	params := component.ExporterCreateParams{Logger: zap.NewNop()}
-
-	te, err := newSAPMExporter(cfg, params)
-	assert.Nil(t, err)
-	assert.NotNil(t, te, "failed to create trace exporter")
-
-	assert.NotNil(t, te.tracker, "correlation tracker should have been set")
-}
-
-func TestCreateTraceExporterWithCorrelationDisabled(t *testing.T) {
-	cfg := createDefaultConfig().(*Config)
-	cfg.Endpoint = "localhost:1234"
-	params := component.ExporterCreateParams{Logger: zap.NewNop()}
-
-	te, err := newSAPMExporter(cfg, params)
-	assert.Nil(t, err)
-	assert.NotNil(t, te, "failed to create trace exporter")
-
-	assert.Nil(t, te.tracker, "tracker correlation should not be created")
-}
-
 func TestCreateTraceExporterWithInvalidConfig(t *testing.T) {
 	config := &Config{}
 	params := component.ExporterCreateParams{Logger: zap.NewNop()}
@@ -88,115 +64,69 @@ func TestCreateTraceExporterWithInvalidConfig(t *testing.T) {
 	assert.Nil(t, te)
 }
 
-func buildTestTraces(setTokenLabel, accessTokenPassthrough bool) (traces pdata.Traces, expected map[string]pdata.Traces) {
+func buildTestTraces(setTokenLabel bool) (traces pdata.Traces) {
 	traces = pdata.NewTraces()
-	expected = map[string]pdata.Traces{}
 	rss := traces.ResourceSpans()
-	rss.Resize(50)
+	rss.Resize(20)
 
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 20; i++ {
 		span := rss.At(i)
-		span.InitEmpty()
 		resource := span.Resource()
-		resource.InitEmpty()
-		token := ""
 		if setTokenLabel && i%2 == 1 {
-			tokenLabel := fmt.Sprintf("MyToken%d", i/25)
+			tokenLabel := fmt.Sprintf("MyToken%d", i/5)
 			resource.Attributes().InsertString("com.splunk.signalfx.access_token", tokenLabel)
-			if accessTokenPassthrough {
-				token = tokenLabel
-			}
 		}
 
-		resource.Attributes().InsertString("MyLabel", "MyLabelValue")
 		span.InstrumentationLibrarySpans().Resize(1)
 		span.InstrumentationLibrarySpans().At(0).Spans().Resize(1)
 		name := fmt.Sprintf("Span%d", i)
 		span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetName(name)
-
-		trace, contains := expected[token]
-		if !contains {
-			trace = pdata.NewTraces()
-			expected[token] = trace
-		}
-		newSize := trace.ResourceSpans().Len() + 1
-		trace.ResourceSpans().Resize(newSize)
-		span.CopyTo(trace.ResourceSpans().At(newSize - 1))
-		trace.ResourceSpans().At(newSize - 1).Resource().Attributes().Delete("com.splunk.signalfx.access_token")
+		span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetTraceID(pdata.NewTraceID([16]byte{1}))
+		span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetSpanID(pdata.NewSpanID([8]byte{1}))
 	}
 
-	return traces, expected
+	return traces
 }
 
-func assertTracesEqual(t *testing.T, expected, actual map[string]pdata.Traces) {
-	for token, trace := range expected {
-		aTrace := actual[token]
-		eResourceSpans := trace.ResourceSpans()
-		aResourceSpans := aTrace.ResourceSpans()
-		assert.Equal(t, eResourceSpans.Len(), aResourceSpans.Len())
-		for i := 0; i < eResourceSpans.Len(); i++ {
-			eAttrs := eResourceSpans.At(i).Resource().Attributes()
-			aAttrs := aResourceSpans.At(i).Resource().Attributes()
-			assert.Equal(t, eAttrs.Len(), aAttrs.Len())
-			aAttrs.ForEach(func(k string, v pdata.AttributeValue) {
-				eVal, _ := eAttrs.Get(k)
-				assert.EqualValues(t, eVal, v)
-			})
-
-			eSpans := eResourceSpans.At(i).InstrumentationLibrarySpans()
-			aSpans := aResourceSpans.At(i).InstrumentationLibrarySpans()
-			assert.Equal(t, eSpans.Len(), aSpans.Len())
-		}
-	}
-}
-
-func TestAccessTokenPassthrough(t *testing.T) {
+func TestFilterToken(t *testing.T) {
 	tests := []struct {
-		name                   string
-		accessTokenPassthrough bool
-		useToken               bool
+		name     string
+		useToken bool
 	}{
 		{
-			name:                   "no token without passthrough",
-			accessTokenPassthrough: false,
-			useToken:               false,
+			name:     "no token",
+			useToken: false,
 		},
 		{
-			name:                   "no token with passthrough",
-			accessTokenPassthrough: true,
-			useToken:               false,
-		},
-		{
-			name:                   "token without passthrough",
-			accessTokenPassthrough: false,
-			useToken:               true,
-		},
-		{
-			name:                   "token with passthrough",
-			accessTokenPassthrough: true,
-			useToken:               true,
+			name:     "some with token",
+			useToken: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := &Config{
-				Endpoint: "localhost",
-				AccessTokenPassthroughConfig: splunk.AccessTokenPassthroughConfig{
-					AccessTokenPassthrough: tt.accessTokenPassthrough,
-				},
-			}
-			params := component.ExporterCreateParams{Logger: zap.NewNop()}
-
-			se, err := newSAPMExporter(config, params)
-			assert.Nil(t, err)
-			assert.NotNil(t, se, "failed to create trace exporter")
-
-			traces, expected := buildTestTraces(tt.useToken, tt.accessTokenPassthrough)
-
-			actual := se.tracesByAccessToken(traces)
-			assertTracesEqual(t, expected, actual)
+			traces := buildTestTraces(tt.useToken)
+			batches, err := jaeger.InternalTracesToJaegerProto(traces)
+			require.NoError(t, err)
+			assert.Equal(t, tt.useToken, hasToken(batches))
+			filterToken(batches)
+			assert.False(t, hasToken(batches))
 		})
 	}
+}
+
+func hasToken(batches []*model.Batch) bool {
+	for _, batch := range batches {
+		proc := batch.Process
+		if proc == nil {
+			continue
+		}
+		for i := range proc.Tags {
+			if proc.Tags[i].Key == splunk.SFxAccessTokenLabel {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func buildTestTrace(setIds bool) pdata.Traces {
@@ -204,9 +134,7 @@ func buildTestTrace(setIds bool) pdata.Traces {
 	trace.ResourceSpans().Resize(2)
 	for i := 0; i < 2; i++ {
 		span := trace.ResourceSpans().At(i)
-		span.InitEmpty()
 		resource := span.Resource()
-		resource.InitEmpty()
 		resource.Attributes().InsertString("com.splunk.signalfx.access_token", fmt.Sprintf("TraceAccessToken%v", i))
 		span.InstrumentationLibrarySpans().Resize(1)
 		span.InstrumentationLibrarySpans().At(0).Spans().Resize(1)
@@ -218,8 +146,8 @@ func buildTestTrace(setIds bool) pdata.Traces {
 		rand.Read(traceIDBytes[:])
 		rand.Read(spanIDBytes[:])
 		if setIds {
-			span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetTraceID(pdata.NewTraceID(traceIDBytes[:]))
-			span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetSpanID(pdata.NewSpanID(spanIDBytes[:]))
+			span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetTraceID(pdata.NewTraceID(traceIDBytes))
+			span.InstrumentationLibrarySpans().At(0).Spans().At(0).SetSpanID(pdata.NewSpanID(spanIDBytes))
 		}
 	}
 	return trace

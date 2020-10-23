@@ -34,7 +34,7 @@ import (
 	jaegertranslator "go.opentelemetry.io/collector/translator/trace/jaeger"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/splunk"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk"
 )
 
 var gzipWriterPool = &sync.Pool{
@@ -74,7 +74,7 @@ func (sr *sapmReceiver) handleRequest(ctx context.Context, req *http.Request) er
 	if sr.config.TLSSetting != nil {
 		transport = "https"
 	}
-	ctx = obsreport.ReceiverContext(ctx, sr.config.Name(), transport, "")
+	ctx = obsreport.ReceiverContext(ctx, sr.config.Name(), transport)
 	ctx = obsreport.StartTraceDataReceiveOp(ctx, sr.config.Name(), transport)
 
 	td := jaegertranslator.ProtoBatchesToInternalTraces(sapm.Batches)
@@ -84,10 +84,8 @@ func (sr *sapmReceiver) handleRequest(ctx context.Context, req *http.Request) er
 			rSpans := td.ResourceSpans()
 			for i := 0; i < rSpans.Len(); i++ {
 				rSpan := rSpans.At(i)
-				if !rSpan.IsNil() {
-					attrs := rSpan.Resource().Attributes()
-					attrs.UpsertString(splunk.SFxAccessTokenLabel, accessToken)
-				}
+				attrs := rSpan.Resource().Attributes()
+				attrs.UpsertString(splunk.SFxAccessTokenLabel, accessToken)
 			}
 		}
 	}
@@ -105,7 +103,7 @@ func (sr *sapmReceiver) handleRequest(ctx context.Context, req *http.Request) er
 // HTTPHandlerFunction returns an http.HandlerFunc that handles SAPM requests
 func (sr *sapmReceiver) HTTPHandlerFunc(rw http.ResponseWriter, req *http.Request) {
 	// create context with the receiver name from the request context
-	ctx := obsreport.ReceiverContext(req.Context(), sr.config.Name(), "http", "")
+	ctx := obsreport.ReceiverContext(req.Context(), sr.config.Name(), "http")
 
 	// handle the request payload
 	err := sr.handleRequest(ctx, req)
@@ -212,8 +210,8 @@ func (sr *sapmReceiver) Shutdown(context.Context) error {
 	return err
 }
 
-// this validates at compile time that sapmReceiver implements the component.TraceReceiver interface
-var _ component.TraceReceiver = (*sapmReceiver)(nil)
+// this validates at compile time that sapmReceiver implements the component.TracesReceiver interface
+var _ component.TracesReceiver = (*sapmReceiver)(nil)
 
 // New creates a sapmReceiver that receives SAPM over http
 func New(
@@ -221,7 +219,7 @@ func New(
 	params component.ReceiverCreateParams,
 	config *Config,
 	nextConsumer consumer.TracesConsumer,
-) (component.TraceReceiver, error) {
+) (component.TracesReceiver, error) {
 	// build the response message
 	defaultResponse := &splunksapm.PostSpansResponse{}
 	defaultResponseBytes, err := defaultResponse.Marshal()

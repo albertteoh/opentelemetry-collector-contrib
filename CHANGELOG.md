@@ -2,11 +2,170 @@
 
 ## Unreleased
 
+## v0.17.0
+
+# 🎉 OpenTelemetry Collector Contrib v0.17.0 (Beta) 🎉
+
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.17.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
+
+## 💡 Enhancements 💡
+
+- `awsemf` exporter: Add collector version to EMF exporter user agent (#1778)
+- `signalfx` exporter: Add configuration for trace correlation (#1795)
+- `statsd` receiver: Add support for metric aggregation (#1670)
+- `datadog` exporter: Improve logging of hostname detection (#1796)
+
+## 🧰 Bug fixes 🧰
+
+- `resourcedetection` processor: Fix ecs detector to not use the default golang logger (#1745)
+- `signalfx` receiver: Return 200 when receiver succeed (#1785)
+- `datadog` exporter: Use a singleton for sublayer calculation (#1759)
+- `awsxray` and `awsemf` exporters: Change the User-Agent content order (#1791)
+
+## v0.16.0
+
+# 🎉 OpenTelemetry Collector Contrib v0.16.0 (Beta) 🎉
+
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.16.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
+
+## 🛑 Breaking changes 🛑
+
+- `honeycomb` exporter: Update to use internal data format (#1689)
+
+## 💡 Enhancements 💡
+
+- `newrelic` exporter: Add support for span events (#1643)
+- `awsemf` exporter:
+  - Add placeholder support in `log_group_name` and `log_stream_name` config (#1623, #1661)
+  - Add label matching filtering rule (#1619)
+- `resourcedetection` processor: Add new resource detector for AWS Elastic Beanstalk environments (#1585)
+- `loadbalancing` exporter:
+  - Add sort of endpoints in static resolver (#1692)
+  - Allow specifying port when using DNS resolver (#1650)
+- Add `batchperresourceattr` helper library that splits an incoming data based on an attribute in the resource (#1694)
+- `alibabacloudlogservice` exporter:
+  - Add logs exporter (#1609)
+  - Change trace type from opencensus to opentelemetry (#1713)
+- `datadog` exporter:
+  - Improve trace exporter performance (#1706, #1707)
+  - Add option to only send metadata (#1723)
+- `awsxray` exporter:
+  - Add parsing of Python stack traces (#1676)
+  - Add collector version to user agent (#1730)
+
+## 🧰 Bug fixes 🧰
+
+- `loadbalancing` exporter:
+  - Fix retry queue for exporters (#1687)
+  - Fix `periodicallyResolve` for DNS resolver checks (#1678)
+- `datadog` exporter: Fix status code handling (#1691)
+- `awsxray` exporter:
+  - Fix empty traces in X-Ray console (#1709)
+  - Stricter requirements for adding http request url (#1729)
+  - Fix status code handling for errors/faults (#1740)
+- `signalfx` exporter:
+  - Split incoming data requests by access token before enqueuing (#1727)
+  - Disable retry on 400 and 401, retry with backoff on 429 and 503 (#1672)
+- `awsecscontainermetrics` receiver: Improve error handling to fix seg fault (#1738)
+
+## v0.15.0
+
+# 🎉 OpenTelemetry Collector Contrib v0.15.0 (Beta) 🎉
+
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.15.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
+
+## 🚀 New components 🚀
+
+- `zookeeper` receiver: Collects metrics from a Zookeeper instance using the `mntr` command
+- `loadbalacing` exporter: Consistently exports spans belonging to the same trace to the same backend
+- `windowsperfcounters` receiver: Captures the configured system, application, or custom performance counter data from the Windows registry using the PDH interface
+- `awsprometheusremotewrite` exporter:  Sends metrics data in Prometheus TimeSeries format to a Prometheus Remote Write Backend and signs each outgoing HTTP request following the AWS Signature Version 4 signing process
+
+## 💡 Enhancements 💡
+
+- `awsemf` exporter:
+  - Add `metric_declarations` config option for metric filtering and dimensions (#1503)
+  - Add SummaryDataType and remove Min/Max from Histogram (#1584)
+- `signalfxcorrelation` exporter: Add ability to translate host dimension (#1561)
+- `newrelic` exporter: Use pdata instead of the OpenCensus for traces (#1587)
+- `metricstransform` processor:
+  - Add `combine` action for matched metrics (#1506)
+  - Add `submatch_case` config option to specify case of matched label values (#1640)
+- `awsecscontainermetrics` receiver: Extract cluster name from ARN (#1626)
+- `elastic` exporter: Improve handling of span status if the status code is unset (#1591)
+
+## 🧰 Bug fixes 🧰
+
+- `awsemf` exporter: Add check for unhandled metric data types (#1493)
+- `groupbytrace` processor: Make buffered channel to avoid goroutines leak (#1505)
+- `stackdriver` exporter: Set `options.UserAgent` so that the OpenCensus exporter does not override the UA ($1620)
+
+## v0.14.0
+
+# 🎉 OpenTelemetry Collector Contrib v0.14.0 (Beta) 🎉
+
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.14.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
+
+## 🚀 New components 🚀
+
+- `datadog` exporter to send metric and trace data to Datadog (#1352)
+- `tailsampling` processor moved from core to contrib (#1383)
+
+## 🛑 Breaking changes 🛑
+
+- `jmxmetricsextension` migrated to `jmxreceiver` (#1182, #1357)
+- Move signalfx correlation code out of `sapm` to `signalfxcorrelation` exporter (#1376)
+- Move Splunk specific utils outside of common (#1306)
+- `stackdriver` exporter:
+    - Config options `metric_prefix` & `skip_create_metric_descriptor` are now nested under `metric`, see [README](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/master/exporter/stackdriverexporter/README.md).
+    - Trace status codes no longer reflect gRPC codes as per spec changes: open-telemetry/opentelemetry-specification#1067
+- `datadog` exporter: Remove option to change the namespace prefix (#1483)
+
+## 💡 Enhancements 💡
+
+- `splunkhec` receiver: Add ability to ingest metrics (#1276)
+- `signalfx` receiver: Improve pipeline error handling (#1329)
+- `datadog` exporter:
+  - Improve hostname resolution (#1285)
+  - Add flushing/export of traces and trace-related statistics (#1266)
+  - Enable traces on Windows (#1340)
+  - Send otel.exporter running metric (#1354)
+  - Add tag normalization util method (#1373)
+  - Send host metadata (#1351)
+  - Support resource conventions for hostnames (#1434)
+  - Add version tag extract (#1449)
+- Add `batchpertrace` library to split the incoming batch into several batches, one per trace (#1257)
+- `statsd` receiver:
+  - Add timer support (#1335)
+  - Add sample rate support for counter, transfer gauge to double and transfer counter to int only (#1361)
+- `awsemf` exporter: Restructure metric translator logic (#1353)
+- `resourcedetection` processor:
+  - Add EC2 hostname attribute (#1324)
+  - Add ECS Resource detector (#1360)
+- `sapm` exporter: Add queue settings (#1390)
+- `metrictransform` processor: Add metric filter option (#1447)
+- `awsxray` exporter: Improve ECS attribute and origin translation (#1428)
+- `resourcedetection` processor: Initial system detector (#1405)
+
+## 🧰 Bug fixes 🧰
+
+- Remove duplicate definition of cloud providers with core conventions (#1288)
+- `kubeletstats` receiver: Handle nil references from the kubelet API (#1326)
+- `awsxray` receiver:
+  - Add kind type to root span to fix the empty parentID problem (#1338)
+  - Fix the race condition issue (#1490)
+- `awsxray` exporter:
+  - Setting the tlsconfig InsecureSkipVerify using NoVerifySSL (#1350)
+  - Drop invalid xray trace id (#1366)
+- `elastic` exporter: Ensure span name is limited (#1371)
+- `splunkhec` exporter: Don't send 'zero' timestamps to Splunk HEC (#1157)
+- `stackdriver` exporter: Skip processing empty metrics slice (#1494)
+
 ## v0.13.0
 
 # 🎉 OpenTelemetry Collector Contrib v0.13.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.13.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.13.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 💡 Enhancements 💡
 
@@ -38,7 +197,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.12.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.12.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.12.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🚀 New components 🚀
 
@@ -82,7 +241,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.11.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.11.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.11.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🚀 New components 🚀
 - add `dockerstats` receiver as top level component (#1081)
@@ -105,7 +264,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.10.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.10.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.10.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🚀 New components 🚀
 - add initial docker stats receiver, without sourcing in top level components (#495)
@@ -140,7 +299,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.9.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.9.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.9.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🛑 Breaking changes 🛑
 - Remove deprecated `lightstep` exporter (#828)
@@ -172,7 +331,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.8.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.8.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.8.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🚀 New components 🚀
 
@@ -219,7 +378,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.7.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.7.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.7.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🛑 Breaking changes 🛑
 
@@ -251,7 +410,7 @@ The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-co
 
 # 🎉 OpenTelemetry Collector Contrib v0.6.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.6.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.6.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🛑 Breaking changes 🛑
 
@@ -285,7 +444,7 @@ Released 01-07-2020
 
 # 🎉 OpenTelemetry Collector Contrib v0.5.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.5.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.5.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🚀 New components 🚀
 
@@ -313,7 +472,7 @@ Released 17-06-2020
 
 # 🎉 OpenTelemetry Collector Contrib v0.4.0 (Beta) 🎉
 
-The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.4.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/about/) for deployment and configuration information.
+The OpenTelemetry Collector Contrib contains everything in the [opentelemetry-collector release](https://github.com/open-telemetry/opentelemetry-collector/releases/tag/v0.4.0) (be sure to check the release notes here as well!). Check out the [Getting Started Guide](https://opentelemetry.io/docs/collector/getting-started/) for deployment and configuration information.
 
 ## 🛑 Breaking changes 🛑
 

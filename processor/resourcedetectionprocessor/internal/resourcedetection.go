@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
 )
@@ -32,7 +33,7 @@ type Detector interface {
 	Detect(ctx context.Context) (pdata.Resource, error)
 }
 
-type DetectorFactory func() (Detector, error)
+type DetectorFactory func(component.ProcessorCreateParams) (Detector, error)
 
 type ResourceProviderFactory struct {
 	// detectors holds all possible detector types.
@@ -43,17 +44,20 @@ func NewProviderFactory(detectors map[DetectorType]DetectorFactory) *ResourcePro
 	return &ResourceProviderFactory{detectors: detectors}
 }
 
-func (f *ResourceProviderFactory) CreateResourceProvider(logger *zap.Logger, timeout time.Duration, detectorTypes ...DetectorType) (*ResourceProvider, error) {
-	detectors, err := f.getDetectors(detectorTypes)
+func (f *ResourceProviderFactory) CreateResourceProvider(
+	params component.ProcessorCreateParams,
+	timeout time.Duration,
+	detectorTypes ...DetectorType) (*ResourceProvider, error) {
+	detectors, err := f.getDetectors(params, detectorTypes)
 	if err != nil {
 		return nil, err
 	}
 
-	provider := NewResourceProvider(logger, timeout, detectors...)
+	provider := NewResourceProvider(params.Logger, timeout, detectors...)
 	return provider, nil
 }
 
-func (f *ResourceProviderFactory) getDetectors(detectorTypes []DetectorType) ([]Detector, error) {
+func (f *ResourceProviderFactory) getDetectors(params component.ProcessorCreateParams, detectorTypes []DetectorType) ([]Detector, error) {
 	detectors := make([]Detector, 0, len(detectorTypes))
 	for _, detectorType := range detectorTypes {
 		detectorFactory, ok := f.detectors[detectorType]
@@ -61,7 +65,7 @@ func (f *ResourceProviderFactory) getDetectors(detectorTypes []DetectorType) ([]
 			return nil, fmt.Errorf("invalid detector key: %v", detectorType)
 		}
 
-		detector, err := detectorFactory()
+		detector, err := detectorFactory(params)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating detector type %q: %w", detectorType, err)
 		}
@@ -108,7 +112,6 @@ func (p *ResourceProvider) detectResource(ctx context.Context) {
 	p.detectedResource = &resourceResult{}
 
 	res := pdata.NewResource()
-	res.InitEmpty()
 
 	p.logger.Info("began detecting resource information")
 
@@ -130,29 +133,42 @@ func (p *ResourceProvider) detectResource(ctx context.Context) {
 func AttributesToMap(am pdata.AttributeMap) map[string]interface{} {
 	mp := make(map[string]interface{}, am.Len())
 	am.ForEach(func(k string, v pdata.AttributeValue) {
-		switch v.Type() {
-		case pdata.AttributeValueBOOL:
-			mp[k] = v.BoolVal()
-		case pdata.AttributeValueINT:
-			mp[k] = v.IntVal()
-		case pdata.AttributeValueDOUBLE:
-			mp[k] = v.DoubleVal()
-		case pdata.AttributeValueSTRING:
-			mp[k] = v.StringVal()
-		case pdata.AttributeValueMAP:
-			mp[k] = AttributesToMap(v.MapVal())
-		}
+		mp[k] = UnwrapAttribute(v)
 	})
 	return mp
+}
+
+func UnwrapAttribute(v pdata.AttributeValue) interface{} {
+	switch v.Type() {
+	case pdata.AttributeValueBOOL:
+		return v.BoolVal()
+	case pdata.AttributeValueINT:
+		return v.IntVal()
+	case pdata.AttributeValueDOUBLE:
+		return v.DoubleVal()
+	case pdata.AttributeValueSTRING:
+		return v.StringVal()
+	case pdata.AttributeValueARRAY:
+		return getSerializableArray(v.ArrayVal())
+	case pdata.AttributeValueMAP:
+		return AttributesToMap(v.MapVal())
+	default:
+		return nil
+	}
+}
+
+func getSerializableArray(inArr pdata.AnyValueArray) []interface{} {
+	var outArr []interface{}
+	for i := 0; i < inArr.Len(); i++ {
+		outArr = append(outArr, UnwrapAttribute(inArr.At(i)))
+	}
+
+	return outArr
 }
 
 func MergeResource(to, from pdata.Resource, overrideTo bool) {
 	if IsEmptyResource(from) {
 		return
-	}
-
-	if to.IsNil() {
-		to.InitEmpty()
 	}
 
 	toAttr := to.Attributes()
@@ -166,5 +182,5 @@ func MergeResource(to, from pdata.Resource, overrideTo bool) {
 }
 
 func IsEmptyResource(res pdata.Resource) bool {
-	return res.IsNil() || res.Attributes().Len() == 0
+	return res.Attributes().Len() == 0
 }

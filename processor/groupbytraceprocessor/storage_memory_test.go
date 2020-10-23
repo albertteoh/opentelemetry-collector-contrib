@@ -27,12 +27,11 @@ func TestMemoryCreateAndGetTrace(t *testing.T) {
 	st := newMemoryStorage()
 
 	traceIDs := []pdata.TraceID{
-		pdata.NewTraceID([]byte{1, 2, 3, 4}),
-		pdata.NewTraceID([]byte{2, 3, 4, 5}),
+		pdata.NewTraceID([16]byte{1, 2, 3, 4}),
+		pdata.NewTraceID([16]byte{2, 3, 4, 5}),
 	}
 
 	baseTrace := pdata.NewResourceSpans()
-	baseTrace.InitEmpty()
 	baseTrace.InstrumentationLibrarySpans().Resize(1)
 	ils := baseTrace.InstrumentationLibrarySpans().At(0)
 	ils.Spans().Resize(1)
@@ -62,10 +61,9 @@ func TestMemoryDeleteTrace(t *testing.T) {
 	// prepare
 	st := newMemoryStorage()
 
-	traceID := pdata.NewTraceID([]byte{1, 2, 3, 4})
+	traceID := pdata.NewTraceID([16]byte{1, 2, 3, 4})
 
 	trace := pdata.NewResourceSpans()
-	trace.InitEmpty()
 	trace.InstrumentationLibrarySpans().Resize(1)
 	ils := trace.InstrumentationLibrarySpans().At(0)
 	ils.Spans().Resize(1)
@@ -90,37 +88,32 @@ func TestMemoryAppendSpans(t *testing.T) {
 	// prepare
 	st := newMemoryStorage()
 
-	traceID := pdata.NewTraceID([]byte{1, 2, 3, 4})
+	traceID := pdata.NewTraceID([16]byte{1, 2, 3, 4})
 
 	batch := pdata.NewResourceSpans()
-	batch.InitEmpty()
 	batch.InstrumentationLibrarySpans().Resize(1)
 	ils := batch.InstrumentationLibrarySpans().At(0)
 	ils.Spans().Resize(1)
 	span := ils.Spans().At(0)
 	span.SetTraceID(traceID)
-	span.SetSpanID(pdata.NewSpanID([]byte{1, 2, 3, 4}))
+	span.SetSpanID(pdata.NewSpanID([8]byte{1, 2, 3, 4}))
 
 	st.createOrAppend(traceID, batch)
 
 	secondBatch := pdata.NewResourceSpans()
-	secondBatch.InitEmpty()
 	secondBatch.InstrumentationLibrarySpans().Resize(1)
 	secondIls := secondBatch.InstrumentationLibrarySpans().At(0)
 	secondIls.Spans().Resize(1)
 	secondSpan := secondIls.Spans().At(0)
 	secondSpan.SetName("second-name")
 	secondSpan.SetTraceID(traceID)
-	secondSpan.SetSpanID(pdata.NewSpanID([]byte{5, 6, 7, 8}))
+	secondSpan.SetSpanID(pdata.NewSpanID([8]byte{5, 6, 7, 8}))
 
 	expected := []pdata.ResourceSpans{
 		pdata.NewResourceSpans(),
 		pdata.NewResourceSpans(),
 	}
-	expected[0].InitEmpty()
 	expected[0].InstrumentationLibrarySpans().Append(ils)
-
-	expected[1].InitEmpty()
 	expected[1].InstrumentationLibrarySpans().Append(secondIls)
 
 	// test
@@ -144,16 +137,15 @@ func TestMemoryAppendSpans(t *testing.T) {
 func TestMemoryTraceIsBeingCloned(t *testing.T) {
 	// prepare
 	st := newMemoryStorage()
-	traceID := pdata.NewTraceID([]byte{1, 2, 3, 4})
+	traceID := pdata.NewTraceID([16]byte{1, 2, 3, 4})
 
 	batch := pdata.NewResourceSpans()
-	batch.InitEmpty()
 	batch.InstrumentationLibrarySpans().Resize(1)
 	ils := batch.InstrumentationLibrarySpans().At(0)
 	ils.Spans().Resize(1)
 	span := ils.Spans().At(0)
 	span.SetTraceID(traceID)
-	span.SetSpanID(pdata.NewSpanID([]byte{1, 2, 3, 4}))
+	span.SetSpanID(pdata.NewSpanID([8]byte{1, 2, 3, 4}))
 	span.SetName("should-not-be-changed")
 
 	// test
@@ -165,16 +157,4 @@ func TestMemoryTraceIsBeingCloned(t *testing.T) {
 	retrieved, err := st.get(traceID)
 	require.NoError(t, err)
 	assert.Equal(t, "should-not-be-changed", retrieved[0].InstrumentationLibrarySpans().At(0).Spans().At(0).Name())
-}
-
-func TestCreateWithNilParameter(t *testing.T) {
-	// prepare
-	st := newMemoryStorage()
-	traceID := pdata.NewTraceID([]byte{1, 2, 3, 4})
-
-	// test
-	err := st.createOrAppend(traceID, pdata.NewResourceSpans())
-
-	// verify
-	require.Equal(t, errStorageNilResourceSpans, err)
 }

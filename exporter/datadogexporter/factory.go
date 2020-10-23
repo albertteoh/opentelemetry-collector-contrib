@@ -20,9 +20,11 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/config/confignet"
+	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/config"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/metadata"
 )
 
 const (
@@ -57,6 +59,9 @@ func createDefaultConfig() configmodels.Exporter {
 			TCPAddr: confignet.TCPAddr{
 				Endpoint: "", // set during config sanitization
 			},
+			ExporterConfig: config.MetricsExporterConfig{
+				ResourceAttributesAsTags: false,
+			},
 		},
 
 		Traces: config.TracesConfig{
@@ -65,12 +70,14 @@ func createDefaultConfig() configmodels.Exporter {
 				Endpoint: "", // set during config sanitization
 			},
 		},
+
+		SendMetadata: true,
 	}
 }
 
 // createMetricsExporter creates a metrics exporter based on this config.
 func createMetricsExporter(
-	_ context.Context,
+	ctx context.Context,
 	params component.ExporterCreateParams,
 	c configmodels.Exporter,
 ) (component.MetricsExporter, error) {
@@ -82,25 +89,50 @@ func createMetricsExporter(
 		return nil, err
 	}
 
-	exp, err := newMetricsExporter(params.Logger, cfg)
-	if err != nil {
+	var pushMetricsFn exporterhelper.PushMetrics
+
+	if cfg.OnlyMetadata {
+		pushMetricsFn = func(context.Context, pdata.Metrics) (int, error) {
+			// if only sending metadata ignore all metrics
+			return 0, nil
+		}
+	} else if exp, err := newMetricsExporter(params, cfg); err == nil {
+		pushMetricsFn = exp.PushMetricsData
+	} else {
+		// error creating the exporter
 		return nil, err
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	if cfg.SendMetadata {
+		once := cfg.OnceMetadata()
+		once.Do(func() {
+			go metadata.Pusher(ctx, params, cfg)
+		})
 	}
 
 	return exporterhelper.NewMetricsExporter(
 		cfg,
-		exp.PushMetricsData,
-		exporterhelper.WithQueue(exporterhelper.CreateDefaultQueueSettings()),
-		exporterhelper.WithRetry(exporterhelper.CreateDefaultRetrySettings()),
+		params.Logger,
+		pushMetricsFn,
+		exporterhelper.WithQueue(exporterhelper.DefaultQueueSettings()),
+		exporterhelper.WithRetry(exporterhelper.DefaultRetrySettings()),
+		exporterhelper.WithShutdown(func(context.Context) error {
+			cancel()
+			return nil
+		}),
+		exporterhelper.WithResourceToTelemetryConversion(exporterhelper.ResourceToTelemetrySettings{
+			Enabled: cfg.Metrics.ExporterConfig.ResourceAttributesAsTags,
+		}),
 	)
 }
 
 // createTraceExporter creates a trace exporter based on this config.
 func createTraceExporter(
-	_ context.Context,
+	ctx context.Context,
 	params component.ExporterCreateParams,
 	c configmodels.Exporter,
-) (component.TraceExporter, error) {
+) (component.TracesExporter, error) {
 
 	cfg := c.(*config.Config)
 
@@ -109,13 +141,35 @@ func createTraceExporter(
 		return nil, err
 	}
 
-	exp, err := newTraceExporter(params.Logger, cfg)
-	if err != nil {
+	var pushTracesFn exporterhelper.PushTraces
+
+	if cfg.OnlyMetadata {
+		pushTracesFn = func(context.Context, pdata.Traces) (int, error) {
+			// if only sending metadata, ignore all traces
+			return 0, nil
+		}
+	} else if exp, err := newTraceExporter(params, cfg); err == nil {
+		pushTracesFn = exp.pushTraceData
+	} else {
+		// error creating the exporter
 		return nil, err
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	if cfg.SendMetadata {
+		once := cfg.OnceMetadata()
+		once.Do(func() {
+			go metadata.Pusher(ctx, params, cfg)
+		})
 	}
 
 	return exporterhelper.NewTraceExporter(
 		cfg,
-		exp.pushTraceData,
+		params.Logger,
+		pushTracesFn,
+		exporterhelper.WithShutdown(func(context.Context) error {
+			cancel()
+			return nil
+		}),
 	)
 }

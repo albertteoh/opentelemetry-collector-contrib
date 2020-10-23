@@ -16,8 +16,10 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/conventions"
 
@@ -31,38 +33,43 @@ const (
 var _ internal.Detector = (*Detector)(nil)
 
 type Detector struct {
-	provider ec2MetadataProvider
+	metadataProvider metadataProvider
 }
 
-func NewDetector() (internal.Detector, error) {
+func NewDetector(component.ProcessorCreateParams) (internal.Detector, error) {
 	sess, err := session.NewSession()
 	if err != nil {
 		return nil, err
 	}
-	return &Detector{provider: &ec2MetadataImpl{sess: sess}}, nil
+	return &Detector{metadataProvider: newMetadataClient(sess)}, nil
 }
 
 func (d *Detector) Detect(ctx context.Context) (pdata.Resource, error) {
 	res := pdata.NewResource()
-	res.InitEmpty()
-
-	if !d.provider.available(ctx) {
+	if !d.metadataProvider.available(ctx) {
 		return res, nil
 	}
 
-	meta, err := d.provider.get(ctx)
+	meta, err := d.metadataProvider.get(ctx)
 	if err != nil {
-		return res, err
+		return res, fmt.Errorf("failed getting identity document: %w", err)
+	}
+
+	hostname, err := d.metadataProvider.hostname(ctx)
+	if err != nil {
+		return res, fmt.Errorf("failed getting hostname: %w", err)
 	}
 
 	attr := res.Attributes()
 	attr.InsertString(conventions.AttributeCloudProvider, conventions.AttributeCloudProviderAWS)
+	attr.InsertString("cloud.infrastructure_service", "EC2")
 	attr.InsertString(conventions.AttributeCloudRegion, meta.Region)
 	attr.InsertString(conventions.AttributeCloudAccount, meta.AccountID)
 	attr.InsertString(conventions.AttributeCloudZone, meta.AvailabilityZone)
 	attr.InsertString(conventions.AttributeHostID, meta.InstanceID)
 	attr.InsertString(conventions.AttributeHostImageID, meta.ImageID)
 	attr.InsertString(conventions.AttributeHostType, meta.InstanceType)
+	attr.InsertString(conventions.AttributeHostName, hostname)
 
 	return res, nil
 }

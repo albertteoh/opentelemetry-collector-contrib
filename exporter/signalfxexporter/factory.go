@@ -16,6 +16,7 @@ package signalfxexporter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -24,9 +25,12 @@ import (
 	otelconfig "go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
+	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/correlation"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/signalfxexporter/translation"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/splunk"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchperresourceattr"
 )
 
 const (
@@ -42,7 +46,9 @@ func NewFactory() component.ExporterFactory {
 		typeStr,
 		createDefaultConfig,
 		exporterhelper.WithMetrics(createMetricsExporter),
-		exporterhelper.WithLogs(createLogsExporter))
+		exporterhelper.WithLogs(createLogsExporter),
+		exporterhelper.WithTraces(createTraceExporter),
+	)
 }
 
 func createDefaultConfig() configmodels.Exporter {
@@ -52,15 +58,44 @@ func createDefaultConfig() configmodels.Exporter {
 			NameVal: typeStr,
 		},
 		TimeoutSettings: exporterhelper.TimeoutSettings{Timeout: defaultHTTPTimeout},
-		RetrySettings:   exporterhelper.CreateDefaultRetrySettings(),
-		QueueSettings:   exporterhelper.CreateDefaultQueueSettings(),
+		RetrySettings:   exporterhelper.DefaultRetrySettings(),
+		QueueSettings:   exporterhelper.DefaultQueueSettings(),
 		AccessTokenPassthroughConfig: splunk.AccessTokenPassthroughConfig{
 			AccessTokenPassthrough: true,
 		},
 		SendCompatibleMetrics: false,
 		TranslationRules:      nil,
 		DeltaTranslationTTL:   3600,
+		Correlation:           correlation.DefaultConfig(),
 	}
+}
+
+func createTraceExporter(
+	_ context.Context,
+	params component.ExporterCreateParams,
+	eCfg configmodels.Exporter,
+) (component.TracesExporter, error) {
+	cfg := eCfg.(*Config)
+	corrCfg := cfg.Correlation
+
+	if corrCfg.Endpoint == "" {
+		apiURL, err := cfg.getAPIURL()
+		if err != nil {
+			return nil, fmt.Errorf("unable to create API URL: %v", err)
+		}
+		corrCfg.Endpoint = apiURL.String()
+	}
+	if cfg.AccessToken == "" {
+		return nil, errors.New("access_token is required")
+	}
+	params.Logger.Info("Correlation tracking enabled", zap.String("endpoint", corrCfg.Endpoint))
+	tracker := correlation.NewTracker(corrCfg, cfg.AccessToken, params)
+
+	return exporterhelper.NewTraceExporter(
+		cfg,
+		params.Logger,
+		tracker.AddSpans,
+		exporterhelper.WithShutdown(tracker.Shutdown))
 }
 
 func createMetricsExporter(
@@ -82,16 +117,30 @@ func createMetricsExporter(
 
 	me, err := exporterhelper.NewMetricsExporter(
 		expCfg,
+		params.Logger,
 		exp.pushMetrics,
 		// explicitly disable since we rely on http.Client timeout logic.
 		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: 0}),
 		exporterhelper.WithRetry(expCfg.RetrySettings),
 		exporterhelper.WithQueue(expCfg.QueueSettings))
 
+	if err != nil {
+		return nil, err
+	}
+
+	// If AccessTokenPassthrough enabled, split the incoming Metrics data by splunk.SFxAccessTokenLabel,
+	// this ensures that we get batches of data for the same token when pushing to the backend.
+	if expCfg.AccessTokenPassthrough {
+		me = &baseMetricsExporter{
+			Component:       me,
+			MetricsConsumer: batchperresourceattr.NewBatchPerResourceMetrics(splunk.SFxAccessTokenLabel, me),
+		}
+	}
+
 	return &signalfMetadataExporter{
 		MetricsExporter: me,
 		pushMetadata:    exp.pushMetadata,
-	}, err
+	}, nil
 }
 
 func setTranslationRules(cfg *Config) error {
@@ -135,11 +184,27 @@ func createLogsExporter(
 		return nil, err
 	}
 
-	return exporterhelper.NewLogsExporter(
+	le, err := exporterhelper.NewLogsExporter(
 		expCfg,
+		params.Logger,
 		exp.pushLogs,
 		// explicitly disable since we rely on http.Client timeout logic.
 		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: 0}),
 		exporterhelper.WithRetry(expCfg.RetrySettings),
 		exporterhelper.WithQueue(expCfg.QueueSettings))
+
+	if err != nil {
+		return nil, err
+	}
+
+	// If AccessTokenPassthrough enabled, split the incoming Metrics data by splunk.SFxAccessTokenLabel,
+	// this ensures that we get batches of data for the same token when pushing to the backend.
+	if expCfg.AccessTokenPassthrough {
+		le = &baseLogsExporter{
+			Component:    le,
+			LogsConsumer: batchperresourceattr.NewBatchPerResourceLogs(splunk.SFxAccessTokenLabel, le),
+		}
+	}
+
+	return le, nil
 }

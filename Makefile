@@ -17,9 +17,10 @@ OTEL_VERSION=master
 # Modules to run integration tests on.
 # XXX: Find a way to automatically populate this. Too slow to run across all modules when there are just a few.
 INTEGRATION_TEST_MODULES := \
-	extension/jmxmetricextension/ \
 	receiver/dockerstatsreceiver \
+	receiver/jmxreceiver/ \
 	receiver/redisreceiver \
+	receiver/zookeeperreceiver \
 	internal/common
 
 .DEFAULT_GOAL := all
@@ -30,6 +31,7 @@ all: common otelcontribcol otelcontribcol-unstable
 .PHONY: e2e-test
 e2e-test: otelcontribcol otelcontribcol-unstable
 	$(MAKE) -C testbed run-tests
+	$(MAKE) -C testbed run-tests TESTS_DIR=tests_unstable_exe
 
 .PHONY: test-with-cover
 unit-tests-with-cover:
@@ -56,6 +58,10 @@ gotidy:
 .PHONY: gofmt
 gofmt:
 	$(MAKE) for-all CMD="make fmt"
+
+.PHONY: golint
+golint:
+	$(MAKE) for-all CMD="make lint"
 
 .PHONY: for-all
 for-all:
@@ -114,6 +120,7 @@ install-tools:
 	go install github.com/pavius/impi/cmd/impi
 	go install github.com/tcnksm/ghr
 	go install honnef.co/go/tools/cmd/staticcheck
+	go install go.opentelemetry.io/collector/cmd/mdatagen
 	go install go.opentelemetry.io/collector/cmd/issuegenerator
 
 .PHONY: run
@@ -136,6 +143,10 @@ endif
 .PHONY: docker-otelcontribcol
 docker-otelcontribcol:
 	COMPONENT=otelcontribcol $(MAKE) docker-component
+
+.PHONY: generate
+generate:
+	$(MAKE) for-all CMD="go generate ./..."
 
 # Build the Collector executable.
 .PHONY: otelcontribcol

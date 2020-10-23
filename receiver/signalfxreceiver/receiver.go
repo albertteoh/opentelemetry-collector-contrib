@@ -27,7 +27,6 @@ import (
 	"time"
 	"unsafe"
 
-	resourcepb "github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1"
 	"github.com/gorilla/mux"
 	sfxpb "github.com/signalfx/com_signalfx_metrics_protobuf/model"
 	"go.opencensus.io/trace"
@@ -37,10 +36,9 @@ import (
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/obsreport"
 	"go.opentelemetry.io/collector/translator/conventions"
-	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/splunk"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/splunk"
 )
 
 const (
@@ -220,7 +218,7 @@ func (r *sfxReceiver) writeResponse(ctx context.Context, resp http.ResponseWrite
 		return
 	}
 
-	resp.WriteHeader(http.StatusAccepted)
+	resp.WriteHeader(http.StatusOK)
 	resp.Write(okRespBody)
 }
 
@@ -230,7 +228,7 @@ func (r *sfxReceiver) handleDatapointReq(resp http.ResponseWriter, req *http.Req
 		transport = "https"
 	}
 
-	ctx := obsreport.ReceiverContext(req.Context(), r.config.Name(), transport, r.config.Name())
+	ctx := obsreport.ReceiverContext(req.Context(), r.config.Name(), transport)
 	ctx = obsreport.StartMetricsReceiveOp(ctx, r.config.Name(), transport)
 
 	if r.metricsConsumer == nil {
@@ -250,30 +248,27 @@ func (r *sfxReceiver) handleDatapointReq(resp http.ResponseWriter, req *http.Req
 	}
 
 	if len(msg.Datapoints) == 0 {
-		obsreport.EndMetricsReceiveOp(ctx, typeStr, 0, 0, nil)
+		obsreport.EndMetricsReceiveOp(ctx, typeStr, 0, nil)
 		resp.Write(okRespBody)
 		return
 	}
 
-	md, _ := signalFxV2ToMetricsData(r.logger, msg.Datapoints)
+	md, _ := signalFxV2ToMetrics(r.logger, msg.Datapoints)
 
 	if r.config.AccessTokenPassthrough {
 		if accessToken := req.Header.Get(splunk.SFxAccessTokenHeader); accessToken != "" {
-			if md.Resource == nil {
-				md.Resource = &resourcepb.Resource{}
+			for i := 0; i < md.ResourceMetrics().Len(); i++ {
+				rm := md.ResourceMetrics().At(i)
+				res := rm.Resource()
+				res.Attributes().Insert(splunk.SFxAccessTokenLabel, pdata.NewAttributeValueString(accessToken))
 			}
-			if md.Resource.Labels == nil {
-				md.Resource.Labels = make(map[string]string, 1)
-			}
-			md.Resource.Labels[splunk.SFxAccessTokenLabel] = accessToken
 		}
 	}
 
-	err := r.metricsConsumer.ConsumeMetrics(ctx, internaldata.OCToMetrics(md))
+	err := r.metricsConsumer.ConsumeMetrics(ctx, md)
 	obsreport.EndMetricsReceiveOp(
 		ctx,
 		typeStr,
-		len(msg.Datapoints),
 		len(msg.Datapoints),
 		err)
 
@@ -286,7 +281,7 @@ func (r *sfxReceiver) handleEventReq(resp http.ResponseWriter, req *http.Request
 		transport = "https"
 	}
 
-	ctx := obsreport.ReceiverContext(req.Context(), r.config.Name(), transport, r.config.Name())
+	ctx := obsreport.ReceiverContext(req.Context(), r.config.Name(), transport)
 	ctx = obsreport.StartMetricsReceiveOp(ctx, r.config.Name(), transport)
 
 	if r.logsConsumer == nil {
@@ -306,29 +301,24 @@ func (r *sfxReceiver) handleEventReq(resp http.ResponseWriter, req *http.Request
 	}
 
 	if len(msg.Events) == 0 {
-		obsreport.EndMetricsReceiveOp(ctx, typeStr, 0, 0, nil)
+		obsreport.EndMetricsReceiveOp(ctx, typeStr, 0, nil)
 		resp.Write(okRespBody)
 		return
 	}
-
-	logSlice := signalFxV2EventsToLogRecords(r.logger, msg.Events)
 
 	ld := pdata.NewLogs()
 	rls := ld.ResourceLogs()
 	rls.Resize(1)
 	rl := rls.At(0)
-	resource := rl.Resource()
 
 	ills := rl.InstrumentationLibraryLogs()
 	ills.Resize(1)
 	ill := ills.At(0)
-
-	logSlice.MoveAndAppendTo(ill.Logs())
+	signalFxV2EventsToLogRecords(msg.Events, ill.Logs())
 
 	if r.config.AccessTokenPassthrough {
 		if accessToken := req.Header.Get(splunk.SFxAccessTokenHeader); accessToken != "" {
-			resource.InitEmpty()
-			resource.Attributes().InsertString(splunk.SFxAccessTokenLabel, accessToken)
+			rl.Resource().Attributes().InsertString(splunk.SFxAccessTokenLabel, accessToken)
 		}
 	}
 
@@ -336,7 +326,6 @@ func (r *sfxReceiver) handleEventReq(resp http.ResponseWriter, req *http.Request
 	obsreport.EndMetricsReceiveOp(
 		ctx,
 		typeStr,
-		len(msg.Events),
 		len(msg.Events),
 		err)
 

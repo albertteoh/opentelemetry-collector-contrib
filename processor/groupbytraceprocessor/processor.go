@@ -16,7 +16,6 @@ package groupbytraceprocessor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -25,10 +24,6 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
-)
-
-var (
-	errNilResourceSpans = errors.New("invalid resource spans (nil)")
 )
 
 // groupByTraceProcessor is a processor that keeps traces in memory for a given duration, with the expectation
@@ -57,7 +52,7 @@ type groupByTraceProcessor struct {
 	st storage
 }
 
-var _ component.TraceProcessor = (*groupByTraceProcessor)(nil)
+var _ component.TracesProcessor = (*groupByTraceProcessor)(nil)
 
 // newGroupByTraceProcessor returns a new processor.
 func newGroupByTraceProcessor(logger *zap.Logger, st storage, nextConsumer consumer.TracesConsumer, config Config) (*groupByTraceProcessor, error) {
@@ -122,11 +117,6 @@ func (sp *groupByTraceProcessor) onBatchReceived(batch pdata.Traces) error {
 }
 
 func (sp *groupByTraceProcessor) processResourceSpans(rs pdata.ResourceSpans) error {
-	if rs.IsNil() {
-		// should not happen with the current code
-		return errNilResourceSpans
-	}
-
 	for _, batch := range splitByTrace(rs) {
 		if err := sp.processBatch(batch); err != nil {
 			sp.logger.Warn("failed to process batch", zap.Error(err),
@@ -154,7 +144,7 @@ func (sp *groupByTraceProcessor) processBatch(batch *singleTraceBatch) error {
 
 	// place the trace ID in the buffer, and check if an item had to be evicted
 	evicted := sp.ringBuffer.put(traceID)
-	if evicted.Bytes() != nil {
+	if evicted.IsValid() {
 		// delete from the storage
 		sp.eventMachine.fire(event{
 			typ:     traceRemoved,
@@ -281,7 +271,7 @@ func splitByTrace(rs pdata.ResourceSpans) []*singleTraceBatch {
 		ils := rs.InstrumentationLibrarySpans().At(i)
 		for j := 0; j < ils.Spans().Len(); j++ {
 			span := ils.Spans().At(j)
-			if span.TraceID().Bytes() == nil {
+			if !span.TraceID().IsValid() {
 				// this should have already been caught before our processor, but let's
 				// protect ourselves against bad clients
 				continue
@@ -293,13 +283,11 @@ func splitByTrace(rs pdata.ResourceSpans) []*singleTraceBatch {
 			// and add the singleTraceBatch to the result list
 			if _, ok := batches[sTraceID]; !ok {
 				newRS := pdata.NewResourceSpans()
-				newRS.InitEmpty()
 				// currently, the ResourceSpans implementation has only a Resource and an ILS. We'll copy the Resource
 				// and set our own ILS
 				rs.Resource().CopyTo(newRS.Resource())
 
 				newILS := pdata.NewInstrumentationLibrarySpans()
-				newILS.InitEmpty()
 				// currently, the ILS implementation has only an InstrumentationLibrary and spans. We'll copy the library
 				// and set our own spans
 				ils.InstrumentationLibrary().CopyTo(newILS.InstrumentationLibrary())

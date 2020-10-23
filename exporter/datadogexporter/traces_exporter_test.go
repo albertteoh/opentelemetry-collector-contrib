@@ -34,9 +34,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/config"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/testutils"
 )
 
 func testTraceExporterHelper(td pdata.Traces, t *testing.T) []string {
+	metricsServer := testutils.DatadogServerMock()
+	defer metricsServer.Close()
+
 	var got []string
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", req.Header.Get("DD-Api-Key"))
@@ -63,6 +67,11 @@ func testTraceExporterHelper(td pdata.Traces, t *testing.T) []string {
 			Hostname: "test_host",
 			Env:      "test_env",
 			Tags:     []string{"key:val"},
+		},
+		Metrics: config.MetricsConfig{
+			TCPAddr: confignet.TCPAddr{
+				Endpoint: metricsServer.URL,
+			},
 		},
 		Traces: config.TracesConfig{
 			SampleRate: 1,
@@ -142,17 +151,24 @@ func testJSONTraceStatsPayload(t *testing.T, rw http.ResponseWriter, req *http.R
 }
 
 func TestNewTraceExporter(t *testing.T) {
+	metricsServer := testutils.DatadogServerMock()
+	defer metricsServer.Close()
+
 	cfg := &config.Config{}
 	cfg.API.Key = "ddog_32_characters_long_api_key1"
-	logger := zap.NewNop()
+	cfg.Metrics.TCPAddr.Endpoint = metricsServer.URL
+	params := component.ExporterCreateParams{Logger: zap.NewNop()}
 
 	// The client should have been created correctly
-	exp, err := newTraceExporter(logger, cfg)
+	exp, err := newTraceExporter(params, cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, exp)
 }
 
 func TestPushTraceData(t *testing.T) {
+	metricsServer := testutils.DatadogServerMock()
+	defer metricsServer.Close()
+
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		assert.Equal(t, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", req.Header.Get("DD-Api-Key"))
 		rw.WriteHeader(http.StatusAccepted)
@@ -168,6 +184,11 @@ func TestPushTraceData(t *testing.T) {
 			Env:      "test_env",
 			Tags:     []string{"key:val"},
 		},
+		Metrics: config.MetricsConfig{
+			TCPAddr: confignet.TCPAddr{
+				Endpoint: metricsServer.URL,
+			},
+		},
 		Traces: config.TracesConfig{
 			SampleRate: 1,
 			TCPAddr: confignet.TCPAddr{
@@ -175,9 +196,9 @@ func TestPushTraceData(t *testing.T) {
 			},
 		},
 	}
-	logger := zap.NewNop()
 
-	exp, err := newTraceExporter(logger, cfg)
+	params := component.ExporterCreateParams{Logger: zap.NewNop()}
+	exp, err := newTraceExporter(params, cfg)
 
 	assert.NoError(t, err)
 
@@ -185,7 +206,6 @@ func TestPushTraceData(t *testing.T) {
 		traces := pdata.NewTraces()
 		resourceSpans := traces.ResourceSpans()
 		resourceSpans.Resize(1)
-		resourceSpans.At(0).InitEmpty()
 		resourceSpans.At(0).InstrumentationLibrarySpans().Resize(1)
 		resourceSpans.At(0).InstrumentationLibrarySpans().At(0).Spans().Resize(1)
 		return traces
@@ -208,24 +228,17 @@ func TestTraceAndStatsExporter(t *testing.T) {
 }
 
 func simpleTraces() pdata.Traces {
-	return simpleTracesWithID(pdata.NewTraceID([]byte{1, 2, 3, 4}))
+	return simpleTracesWithID(pdata.NewTraceID([16]byte{1, 2, 3, 4}))
 }
 
 func simpleTracesWithID(traceID pdata.TraceID) pdata.Traces {
-	span := pdata.NewSpan()
-	span.InitEmpty()
-	span.SetTraceID(traceID)
-
-	ils := pdata.NewInstrumentationLibrarySpans()
-	ils.InitEmpty()
-	ils.Spans().Append(span)
-
-	rs := pdata.NewResourceSpans()
-	rs.InitEmpty()
-	rs.InstrumentationLibrarySpans().Append(ils)
-
 	traces := pdata.NewTraces()
-	traces.ResourceSpans().Append(rs)
+	traces.ResourceSpans().Resize(1)
+	rs := traces.ResourceSpans().At(0)
+	rs.InstrumentationLibrarySpans().Resize(1)
+	ils := rs.InstrumentationLibrarySpans().At(0)
+	ils.Spans().Resize(1)
+	ils.Spans().At(0).SetTraceID(traceID)
 
 	return traces
 }

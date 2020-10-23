@@ -17,12 +17,9 @@ package datadogexporter
 import (
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/DataDog/datadog-agent/pkg/trace/exportable/pb"
-	"go.opencensus.io/trace"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/conventions"
 	tracetranslator "go.opentelemetry.io/collector/translator/trace"
@@ -31,66 +28,41 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/config"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter/utils"
 )
-
-// codeDetails specifies information about a trace status code.
-type codeDetails struct {
-	message string // status message
-	status  int    // corresponding HTTP status code
-}
 
 const (
 	keySamplingPriority string = "_sampling_priority_v1"
 	versionTag          string = "version"
 	oldILNameTag        string = "otel.instrumentation_library.name"
 	currentILNameTag    string = "otel.library.name"
+	errorCode           int32  = 1
+	okCode              int32  = 0
+	httpKind            string = "http"
+	webKind             string = "web"
+	customKind          string = "custom"
 )
 
-// statusCodes maps (*trace.SpanData).Status.Code to their message and http status code. See:
-// https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto.
-var statusCodes = map[int32]codeDetails{
-	trace.StatusCodeOK:                 {message: "OK", status: http.StatusOK},
-	trace.StatusCodeCancelled:          {message: "CANCELLED", status: 499},
-	trace.StatusCodeUnknown:            {message: "UNKNOWN", status: http.StatusInternalServerError},
-	trace.StatusCodeInvalidArgument:    {message: "INVALID_ARGUMENT", status: http.StatusBadRequest},
-	trace.StatusCodeDeadlineExceeded:   {message: "DEADLINE_EXCEEDED", status: http.StatusGatewayTimeout},
-	trace.StatusCodeNotFound:           {message: "NOT_FOUND", status: http.StatusNotFound},
-	trace.StatusCodeAlreadyExists:      {message: "ALREADY_EXISTS", status: http.StatusConflict},
-	trace.StatusCodePermissionDenied:   {message: "PERMISSION_DENIED", status: http.StatusForbidden},
-	trace.StatusCodeResourceExhausted:  {message: "RESOURCE_EXHAUSTED", status: http.StatusTooManyRequests},
-	trace.StatusCodeFailedPrecondition: {message: "FAILED_PRECONDITION", status: http.StatusBadRequest},
-	trace.StatusCodeAborted:            {message: "ABORTED", status: http.StatusConflict},
-	trace.StatusCodeOutOfRange:         {message: "OUT_OF_RANGE", status: http.StatusBadRequest},
-	trace.StatusCodeUnimplemented:      {message: "UNIMPLEMENTED", status: http.StatusNotImplemented},
-	trace.StatusCodeInternal:           {message: "INTERNAL", status: http.StatusInternalServerError},
-	trace.StatusCodeUnavailable:        {message: "UNAVAILABLE", status: http.StatusServiceUnavailable},
-	trace.StatusCodeDataLoss:           {message: "DATA_LOSS", status: http.StatusNotImplemented},
-	trace.StatusCodeUnauthenticated:    {message: "UNAUTHENTICATED", status: http.StatusUnauthorized},
-}
-
 // converts Traces into an array of datadog trace payloads grouped by env
-func ConvertToDatadogTd(td pdata.Traces, cfg *config.Config, globalTags []string) ([]*pb.TracePayload, error) {
-	// get hostname tag
-	// this is getting abstracted out to config
-	// TODO pass logger here once traces code stabilizes
-	hostname := *metadata.GetHost(zap.NewNop(), cfg)
-
+func convertToDatadogTd(td pdata.Traces, calculator *sublayerCalculator, cfg *config.Config) ([]*pb.TracePayload, error) {
 	// TODO:
 	// do we apply other global tags, like version+service, to every span or only root spans of a service
 	// should globalTags['service'] take precedence over a trace's resource.service.name? I don't believe so, need to confirm
 
 	resourceSpans := td.ResourceSpans()
 
-	traces := []*pb.TracePayload{}
+	var traces []*pb.TracePayload
 
 	for i := 0; i < resourceSpans.Len(); i++ {
 		rs := resourceSpans.At(i)
-		if rs.IsNil() {
-			continue
+		// TODO pass logger here once traces code stabilizes
+		hostname := *metadata.GetHost(zap.NewNop(), cfg)
+		resHostname, ok := metadata.HostnameFromAttributes(rs.Resource().Attributes())
+		if ok {
+			hostname = resHostname
 		}
 
-		// TODO: Also pass in globalTags here when we know what to do with them
-		payload, err := resourceSpansToDatadogSpans(rs, hostname, cfg, globalTags)
+		payload, err := resourceSpansToDatadogSpans(rs, calculator, hostname, cfg)
 		if err != nil {
 			return traces, err
 		}
@@ -102,7 +74,7 @@ func ConvertToDatadogTd(td pdata.Traces, cfg *config.Config, globalTags []string
 	return traces, nil
 }
 
-func AggregateTracePayloadsByEnv(tracePayloads []*pb.TracePayload) []*pb.TracePayload {
+func aggregateTracePayloadsByEnv(tracePayloads []*pb.TracePayload) []*pb.TracePayload {
 	lookup := make(map[string]*pb.TracePayload)
 	for _, tracePayload := range tracePayloads {
 		key := fmt.Sprintf("%s|%s", tracePayload.HostName, tracePayload.Env)
@@ -129,7 +101,7 @@ func AggregateTracePayloadsByEnv(tracePayloads []*pb.TracePayload) []*pb.TracePa
 }
 
 // converts a Trace's resource spans into a trace payload
-func resourceSpansToDatadogSpans(rs pdata.ResourceSpans, hostname string, cfg *config.Config, globalTags []string) (pb.TracePayload, error) {
+func resourceSpansToDatadogSpans(rs pdata.ResourceSpans, calculator *sublayerCalculator, hostname string, cfg *config.Config) (pb.TracePayload, error) {
 	// get env tag
 	env := cfg.Env
 
@@ -143,7 +115,7 @@ func resourceSpansToDatadogSpans(rs pdata.ResourceSpans, hostname string, cfg *c
 		Transactions: []*pb.Span{},
 	}
 
-	if resource.IsNil() && ilss.Len() == 0 {
+	if resource.Attributes().Len() == 0 && ilss.Len() == 0 {
 		return payload, nil
 	}
 
@@ -159,13 +131,10 @@ func resourceSpansToDatadogSpans(rs pdata.ResourceSpans, hostname string, cfg *c
 
 	for i := 0; i < ilss.Len(); i++ {
 		ils := ilss.At(i)
-		if ils.IsNil() {
-			continue
-		}
 		extractInstrumentationLibraryTags(ils.InstrumentationLibrary(), datadogTags)
 		spans := ils.Spans()
 		for j := 0; j < spans.Len(); j++ {
-			span, err := spanToDatadogSpan(spans.At(j), resourceServiceName, datadogTags, cfg, globalTags)
+			span, err := spanToDatadogSpan(spans.At(j), resourceServiceName, datadogTags, cfg)
 
 			if err != nil {
 				return payload, err
@@ -194,12 +163,12 @@ func resourceSpansToDatadogSpans(rs pdata.ResourceSpans, hostname string, cfg *c
 		// calculates analyzed spans for use in trace search and app analytics
 		// appends a specific piece of metadata to these spans marking them as analyzed
 		// TODO: allow users to configure specific spans to be marked as an analyzed spans for app analytics
-		top := GetAnalyzedSpans(apiTrace.Spans)
+		top := getAnalyzedSpans(apiTrace.Spans)
 
 		// calculates span metrics for representing direction and timing among it's different services for display in
 		// service overview graphs
 		// see: https://github.com/DataDog/datadog-agent/blob/f69a7d35330c563e9cad4c5b8865a357a87cd0dc/pkg/trace/stats/sublayers.go#L204
-		ComputeSublayerMetrics(apiTrace.Spans)
+		computeSublayerMetrics(calculator, apiTrace.Spans)
 		payload.Transactions = append(payload.Transactions, top...)
 		payload.Traces = append(payload.Traces, apiTrace)
 	}
@@ -212,21 +181,25 @@ func spanToDatadogSpan(s pdata.Span,
 	serviceName string,
 	datadogTags map[string]string,
 	cfg *config.Config,
-	globalTags []string,
 ) (*pb.Span, error) {
+
+	tags := aggregateSpanTags(s, datadogTags)
+
 	// otel specification resource service.name takes precedence
 	// and configuration DD_ENV as fallback if it exists
 	if serviceName == "" && cfg.Service != "" {
 		serviceName = cfg.Service
 	}
 
-	version := cfg.Version
-	tags := aggregateSpanTags(s, datadogTags)
-
-	// if no version tag exists, set it if provided via config
-	if version != "" {
-		if tagVersion := tags[versionTag]; tagVersion == "" {
-			tags[versionTag] = version
+	//  canonical resource attribute version should override others if it exists
+	if rsTagVersion := tags[conventions.AttributeServiceVersion]; rsTagVersion != "" {
+		tags[versionTag] = rsTagVersion
+	} else {
+		// if no version tag exists, set it if provided via config
+		if cfg.Version != "" {
+			if tagVersion := tags[versionTag]; tagVersion == "" {
+				tags[versionTag] = cfg.Version
+			}
 		}
 	}
 
@@ -245,68 +218,31 @@ func spanToDatadogSpan(s pdata.Span,
 		duration = 0
 	}
 
-	datadogType := spanKindToDatadogType(s.Kind())
+	// by checking for error and setting error tags before creating datadog span
+	// we can then set Error field when creating and predefine a max meta capacity
+	isSpanError := getSpanErrorAndSetTags(s, tags)
 
 	span := &pb.Span{
-		TraceID:  decodeAPMId(s.TraceID().Bytes()[:]),
-		SpanID:   decodeAPMId(s.SpanID().Bytes()[:]),
+		TraceID:  decodeAPMTraceID(s.TraceID().Bytes()),
+		SpanID:   decodeAPMSpanID(s.SpanID().Bytes()),
 		Name:     getDatadogSpanName(s, tags),
 		Resource: getDatadogResourceName(s, tags),
 		Service:  serviceName,
 		Start:    int64(startTime),
-		Duration: int64(duration),
+		Duration: duration,
 		Metrics:  map[string]float64{},
-		Meta:     map[string]string{},
-		Type:     datadogType,
+		Meta:     make(map[string]string, len(tags)),
+		Type:     spanKindToDatadogType(s.Kind()),
+		Error:    isSpanError,
 	}
 
-	if len(s.ParentSpanID().Bytes()) > 0 {
-		span.ParentID = decodeAPMId(s.ParentSpanID().Bytes()[:])
-	}
-
-	// Set Span Status and any response or error details
-	status := s.Status()
-	if !status.IsNil() {
-		// map to known msg + status
-		code, ok := statusCodes[int32(status.Code())]
-		if !ok {
-			code = codeDetails{
-				message: "ERR_CODE_" + strconv.FormatInt(int64(status.Code()), 10),
-				status:  http.StatusInternalServerError,
-			}
-		}
-
-		// check if 500 or 400 level, if so set error
-		if code.status/100 == 5 || code.status/100 == 4 {
-			span.Error = 1
-			// set error type
-			tags[ext.ErrorType] = code.message
-			// set error message
-			if status.Message() != "" {
-				tags[ext.ErrorMsg] = status.Message()
-			} else {
-				tags[ext.ErrorMsg] = code.message
-			}
-			// otherwise no error
-		}
-
-		// set tag as string for status code
-		tags[conventions.AttributeHTTPStatusCode] = status.Code().String()
+	if s.ParentSpanID().IsValid() {
+		span.ParentID = decodeAPMSpanID(s.ParentSpanID().Bytes())
 	}
 
 	// Set Attributes as Tags
 	for key, val := range tags {
 		setStringTag(span, key, val)
-	}
-
-	for _, val := range globalTags {
-		parts := strings.Split(val, ":")
-		// only apply global tag if its not service/env/version/host and it is not malformed
-		if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" || isCanonicalSpanTag(strings.TrimSpace(parts[0])) {
-			continue
-		}
-
-		setStringTag(span, strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
 	}
 
 	return span, nil
@@ -315,13 +251,10 @@ func spanToDatadogSpan(s pdata.Span,
 func resourceToDatadogServiceNameAndAttributeMap(
 	resource pdata.Resource,
 ) (serviceName string, datadogTags map[string]string) {
-
-	datadogTags = make(map[string]string)
-	if resource.IsNil() {
-		return tracetranslator.ResourceNoServiceName, datadogTags
-	}
-
 	attrs := resource.Attributes()
+	// predefine capacity where possible
+	datadogTags = make(map[string]string, attrs.Len())
+
 	if attrs.Len() == 0 {
 		return tracetranslator.ResourceNoServiceName, datadogTags
 	}
@@ -346,9 +279,6 @@ func extractDatadogServiceName(datadogTags map[string]string) string {
 }
 
 func extractInstrumentationLibraryTags(il pdata.InstrumentationLibrary, datadogTags map[string]string) {
-	if il.IsNil() {
-		return
-	}
 	if ilName := il.Name(); ilName != "" {
 		datadogTags[tracetranslator.TagInstrumentationName] = ilName
 	}
@@ -358,23 +288,18 @@ func extractInstrumentationLibraryTags(il pdata.InstrumentationLibrary, datadogT
 }
 
 func aggregateSpanTags(span pdata.Span, datadogTags map[string]string) map[string]string {
-	tags := make(map[string]string)
+	// predefine capacity as at most the size attributes and global tags
+	// there may be overlap between the two.
+	spanTags := make(map[string]string, span.Attributes().Len()+len(datadogTags))
 	for key, val := range datadogTags {
-		tags[key] = val
+		spanTags[key] = val
 	}
-	spanTags := attributeMapToStringMap(span.Attributes())
-	for key, val := range spanTags {
-		tags[key] = val
-	}
-	return tags
-}
 
-func attributeMapToStringMap(attrMap pdata.AttributeMap) map[string]string {
-	rawMap := make(map[string]string)
-	attrMap.ForEach(func(k string, v pdata.AttributeValue) {
-		rawMap[k] = tracetranslator.AttributeValueToString(v, false)
+	span.Attributes().ForEach(func(k string, v pdata.AttributeValue) {
+		spanTags[k] = tracetranslator.AttributeValueToString(v, false)
 	})
-	return rawMap
+
+	return spanTags
 }
 
 // TODO: this seems to resolve to SPAN_KIND_UNSPECIFIED in e2e using jaeger receiver
@@ -382,11 +307,11 @@ func attributeMapToStringMap(attrMap pdata.AttributeMap) map[string]string {
 func spanKindToDatadogType(kind pdata.SpanKind) string {
 	switch kind {
 	case pdata.SpanKindCLIENT:
-		return "http"
+		return httpKind
 	case pdata.SpanKindSERVER:
-		return "web"
+		return webKind
 	default:
-		return "custom"
+		return customKind
 	}
 }
 
@@ -428,8 +353,15 @@ func addToAPITrace(apiTrace *pb.APITrace, sp *pb.Span) {
 	}
 }
 
-func decodeAPMId(apmID []byte) uint64 {
-	id := hex.EncodeToString(apmID)
+func decodeAPMSpanID(rawID [8]byte) uint64 {
+	return decodeAPMId(hex.EncodeToString(rawID[:]))
+}
+
+func decodeAPMTraceID(rawID [16]byte) uint64 {
+	return decodeAPMId(hex.EncodeToString(rawID[:]))
+}
+
+func decodeAPMId(id string) uint64 {
 	if len(id) > 16 {
 		id = id[len(id)-16:]
 	}
@@ -448,18 +380,18 @@ func getDatadogSpanName(s pdata.Span, datadogTags map[string]string) string {
 	// The spec has changed over time and, depending on the original exporter, IL Name could represented a few different ways
 	// so we try to account for all permutations
 	if ilnOtlp, okOtlp := datadogTags[tracetranslator.TagInstrumentationName]; okOtlp {
-		return strings.ReplaceAll(fmt.Sprintf("%s.%s", ilnOtlp, s.Kind()), "::", "_")
+		return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", ilnOtlp, s.Kind()))
 	}
 
 	if ilnOtelCur, okOtelCur := datadogTags[currentILNameTag]; okOtelCur {
-		return strings.ReplaceAll(fmt.Sprintf("%s.%s", ilnOtelCur, s.Kind()), "::", "_")
+		return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", ilnOtelCur, s.Kind()))
 	}
 
 	if ilnOtelOld, okOtelOld := datadogTags[oldILNameTag]; okOtelOld {
-		return strings.ReplaceAll(fmt.Sprintf("%s.%s", ilnOtelOld, s.Kind()), "::", "_")
+		return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", ilnOtelOld, s.Kind()))
 	}
 
-	return strings.ReplaceAll(fmt.Sprintf("%s.%s", "opentelemetry", s.Kind()), "::", "_")
+	return utils.NormalizeSpanName(fmt.Sprintf("%s.%s", "opentelemetry", s.Kind()))
 }
 
 func getDatadogResourceName(s pdata.Span, datadogTags map[string]string) string {
@@ -478,15 +410,43 @@ func getDatadogResourceName(s pdata.Span, datadogTags map[string]string) string 
 	return s.Name()
 }
 
-// we want to handle these tags separately
-func isCanonicalSpanTag(category string) bool {
-	switch category {
-	case
-		"env",
-		"host",
-		"service",
-		"version":
-		return true
+func getSpanErrorAndSetTags(s pdata.Span, tags map[string]string) int32 {
+	isError := okCode
+	// Set Span Status and any response or error details
+	status := s.Status()
+	switch status.Code() {
+	case pdata.StatusCodeOk:
+		isError = okCode
+	case pdata.StatusCodeError:
+		isError = errorCode
+	default:
+		isError = okCode
 	}
-	return false
+
+	if isError == errorCode {
+		tags[ext.ErrorType] = "ERR_CODE_" + strconv.FormatInt(int64(status.Code()), 10)
+
+		// try to add a message if possible
+		if status.Message() != "" {
+			tags[ext.ErrorMsg] = status.Message()
+		} else {
+			tags[ext.ErrorMsg] = "ERR_CODE_" + strconv.FormatInt(int64(status.Code()), 10)
+		}
+	}
+
+	// if status code exists check if error depending on type
+	if tags[conventions.AttributeHTTPStatusCode] != "" {
+		httpStatusCode, err := strconv.ParseInt(tags[conventions.AttributeHTTPStatusCode], 10, 64)
+		if err == nil {
+			// for 500 type, always mark as error
+			if httpStatusCode >= 500 {
+				isError = errorCode
+				// for 400 type, mark as error if it is an http client
+			} else if s.Kind() == pdata.SpanKindCLIENT && httpStatusCode >= 400 {
+				isError = errorCode
+			}
+		}
+	}
+
+	return isError
 }
