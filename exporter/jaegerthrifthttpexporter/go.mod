@@ -6,7 +6,7 @@ require (
 	github.com/apache/thrift v0.14.2
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/google/go-cmp v0.5.6
-	github.com/jaegertracing/jaeger v1.23.0
+	github.com/jaegertracing/jaeger v1.24.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/collector v0.29.1-0.20210701204331-d1fced9688ba
