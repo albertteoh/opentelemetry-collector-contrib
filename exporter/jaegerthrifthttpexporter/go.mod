@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/apache/thrift v0.14.2
 	github.com/census-instrumentation/opencensus-proto v0.3.0
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.5.7
 	github.com/jaegertracing/jaeger v1.23.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/stretchr/testify v1.7.0
