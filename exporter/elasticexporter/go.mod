@@ -6,7 +6,7 @@ require (
 	github.com/elastic/go-sysinfo v1.4.0 // indirect
 	github.com/elastic/go-windows v1.0.1 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.1
 	go.elastic.co/apm v1.9.1-0.20201218004853-18a8126106c6
 	go.elastic.co/fastjson v1.1.0
 	go.opentelemetry.io/collector v0.29.1-0.20210701204331-d1fced9688ba
