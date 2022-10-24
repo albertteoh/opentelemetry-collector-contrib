@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/collector/model v0.0.0-00010101000000-000000000000
 	go.uber.org/atomic v1.8.0 // indirect
 	go.uber.org/zap v1.18.1
