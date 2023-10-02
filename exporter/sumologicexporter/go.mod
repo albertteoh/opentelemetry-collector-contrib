@@ -8,7 +8,7 @@ require (
 	go.opentelemetry.io/collector/config/confighttp v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/exporter v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/pdata v1.0.0-rcv0015
 	go.uber.org/multierr v1.11.0
 )
 
