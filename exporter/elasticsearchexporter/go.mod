@@ -10,8 +10,8 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
 	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/config/configopaque v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/config/configtls v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/config/configopaque v0.87.0
+	go.opentelemetry.io/collector/config/configtls v0.87.0
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/exporter v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
