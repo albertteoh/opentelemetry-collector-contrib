@@ -9,7 +9,7 @@ require (
 	go.opentelemetry.io/collector v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/config/confignet v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/confmap v0.89.0
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/receiver v0.85.1-0.20230921012510-68dd7d763b59
@@ -29,6 +29,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
 	github.com/knadh/koanf/v2 v2.0.1 // indirect
@@ -46,7 +47,7 @@ require (
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.85.1-0.20230921012510-68dd7d763b59 // indirect
 	go.opentelemetry.io/collector/exporter v0.85.1-0.20230921012510-68dd7d763b59 // indirect
-	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0014.0.20230921012510-68dd7d763b59 // indirect
+	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0018 // indirect
 	go.opentelemetry.io/collector/processor v0.85.1-0.20230921012510-68dd7d763b59 // indirect
 	go.opentelemetry.io/otel v1.18.0 // indirect
 	go.opentelemetry.io/otel/exporters/prometheus v0.41.0 // indirect
