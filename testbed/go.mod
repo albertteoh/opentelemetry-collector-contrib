@@ -34,7 +34,7 @@ require (
 	go.opentelemetry.io/collector/config/configgrpc v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/config/confighttp v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/config/confignet v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/config/configtls v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/config/configtls v0.89.0
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/exporter v0.85.1-0.20230921012510-68dd7d763b59
@@ -99,7 +99,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
@@ -216,7 +216,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/collector v0.85.1-0.20230921012510-68dd7d763b59 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.85.1-0.20230921012510-68dd7d763b59 // indirect
-	go.opentelemetry.io/collector/config/configopaque v0.85.1-0.20230921012510-68dd7d763b59 // indirect
+	go.opentelemetry.io/collector/config/configopaque v0.89.0 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.85.1-0.20230921012510-68dd7d763b59 // indirect
 	go.opentelemetry.io/collector/config/internal v0.85.1-0.20230921012510-68dd7d763b59 // indirect
 	go.opentelemetry.io/collector/connector v0.85.1-0.20230921012510-68dd7d763b59 // indirect
@@ -249,7 +249,7 @@ require (
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/sys v0.14.0 // indirect
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.13.0 // indirect
