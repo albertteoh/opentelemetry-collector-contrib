@@ -44,7 +44,7 @@ require (
 	go.opentelemetry.io/collector/semconv v0.85.1-0.20230921012510-68dd7d763b59
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.35.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/zorkian/go-datadog-api.v2 v2.30.0
 	k8s.io/apimachinery v0.28.2
