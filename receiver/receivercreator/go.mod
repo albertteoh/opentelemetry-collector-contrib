@@ -1,6 +1,7 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/receivercreator
 
 go 1.20
+toolchain go1.24.1
 
 require (
 	github.com/antonmedv/expr v1.15.2
@@ -8,7 +9,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/sharedcomponent v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.85.0
 	github.com/spf13/cast v1.5.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
@@ -16,7 +17,7 @@ require (
 	go.opentelemetry.io/collector/otelcol v0.0.0-20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/receiver v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/semconv v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/semconv v0.122.1
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
 )
