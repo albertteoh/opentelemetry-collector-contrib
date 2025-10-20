@@ -1,16 +1,16 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/memcachedreceiver
 
-go 1.20
+go 1.24.0
 
 require (
 	github.com/google/go-cmp v0.5.9
 	github.com/grobie/gomemcache v0.0.0-20180201122607-1f779c573665
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.23.0
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/config/confignet v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/config/confignet v1.44.0
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
