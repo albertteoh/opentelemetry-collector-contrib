@@ -6,7 +6,7 @@ go 1.20
 require (
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	github.com/tilinna/clock v1.1.0
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/config/configgrpc v0.85.1-0.20230921012510-68dd7d763b59
@@ -42,7 +42,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mostynb/go-grpc-compression v1.2.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/collector v0.85.1-0.20230921012510-68dd7d763b59 // indirect
 	go.opentelemetry.io/collector/config/configauth v0.85.1-0.20230921012510-68dd7d763b59 // indirect
