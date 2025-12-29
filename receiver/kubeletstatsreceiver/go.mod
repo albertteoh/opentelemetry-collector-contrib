@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver
 
-go 1.20
+go 1.24.0
 
 require (
 	github.com/google/go-cmp v0.5.9
@@ -10,9 +10,9 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8stest v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/config/confignet v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/config/confignet v1.48.0
 	go.opentelemetry.io/collector/config/configtls v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
