@@ -16,7 +16,7 @@ require (
 	github.com/DataDog/sketches-go v1.4.2
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.19.1
 	github.com/aws/aws-sdk-go v1.45.12
-	github.com/cenkalti/backoff/v4 v4.2.1
+	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.85.0
