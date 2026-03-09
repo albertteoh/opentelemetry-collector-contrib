@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/dockerstatsreceiver
 
-go 1.20
+go 1.25.0
 
 require (
 	github.com/docker/docker v24.0.6+incompatible
@@ -8,12 +8,12 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/docker v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.23.0
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/featuregate v1.53.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/receiver v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/semconv v0.85.1-0.20230921012510-68dd7d763b59
@@ -39,6 +39,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.1 // indirect
+	github.com/hashicorp/go-version v1.8.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
