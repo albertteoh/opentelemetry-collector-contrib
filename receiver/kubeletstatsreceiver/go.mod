@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/google/go-cmp v0.5.9
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8stest v0.85.0
