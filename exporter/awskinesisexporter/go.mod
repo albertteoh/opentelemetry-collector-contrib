@@ -1,9 +1,9 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awskinesisexporter
 
-go 1.20
+go 1.24
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.21.0
+	github.com/aws/aws-sdk-go-v2 v1.41.10
 	github.com/aws/aws-sdk-go-v2/config v1.18.40
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.38
 	github.com/aws/aws-sdk-go-v2/service/kinesis v1.18.5
@@ -34,7 +34,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.35 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.14.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.16.0 // indirect
-	github.com/aws/smithy-go v1.14.2 // indirect
+	github.com/aws/smithy-go v1.26.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
