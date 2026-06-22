@@ -1,18 +1,18 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/awsxrayexporter
 
-go 1.20
+go 1.25.0
 
 require (
 	github.com/aws/aws-sdk-go v1.45.12
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/xray v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/exporter v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/featuregate v1.60.0
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/semconv v0.85.1-0.20230921012510-68dd7d763b59
 	go.uber.org/zap v1.26.0
@@ -25,6 +25,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
