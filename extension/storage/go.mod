@@ -1,10 +1,10 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage
 
-go 1.20
+go 1.21
 
 require (
 	github.com/jackc/pgx/v4 v4.18.1
-	github.com/mattn/go-sqlite3 v1.14.17
+	github.com/mattn/go-sqlite3 v1.14.47
 	github.com/stretchr/testify v1.8.4
 	go.etcd.io/bbolt v1.3.7
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
