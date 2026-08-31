@@ -1,14 +1,14 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/receiver/carbonreceiver
 
-go 1.20
+go 1.25.0
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/collector v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/config/confignet v0.85.1-0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/config/confignet v1.65.0
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
@@ -19,6 +19,7 @@ require (
 
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
