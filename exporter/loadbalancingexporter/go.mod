@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchpersignal v0.85.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.12.1
 	go.opencensus.io v0.24.0
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
@@ -68,7 +68,6 @@ require (
 	github.com/mostynb/go-grpc-compression v1.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
@@ -116,6 +115,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v0.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.18.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sys v0.12.0 // indirect
