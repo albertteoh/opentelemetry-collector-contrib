@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/datadogexporter
 
-go 1.20
+go 1.26.0
 
 require (
 	github.com/DataDog/agent-payload/v5 v5.0.89
@@ -27,14 +27,14 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/dockerstatsreceiver v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.85.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.0.0-00010101000000-000000000000
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/collector/component v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/config/confignet v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/config/configopaque v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/confmap v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/consumer v0.85.1-0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/exporter v0.85.1-0.20230921012510-68dd7d763b59
-	go.opentelemetry.io/collector/featuregate v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
+	go.opentelemetry.io/collector/featuregate v1.70.0
 	go.opentelemetry.io/collector/otelcol v0.0.0-20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/pdata v1.0.0-rcv0014.0.20230921012510-68dd7d763b59
 	go.opentelemetry.io/collector/processor v0.85.1-0.20230921012510-68dd7d763b59
@@ -113,6 +113,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
@@ -153,7 +154,6 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20220216144756-c35f1ee13d7c // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
@@ -166,7 +166,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
@@ -205,6 +205,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.18.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20230711023510-fffb14384f22 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.15.0 // indirect
